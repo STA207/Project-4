@@ -12,11 +12,51 @@ knitr::opts_chunk$set(echo = TRUE)
 ## R Markdown
 
 ```{r}
+library(MASS)
+library(car)
+```
+
+
+```{r}
 bank.additional.full <- read.csv("~/Desktop/STA 207/Project 4/bank-additional/bank-additional-full.csv", sep=";")
+data = bank.additional.full
 ```
 
 ```{r}
+# Checking the type of each variable
 sapply(bank.additional.full, class)
+```
+
+
+```{r}
+#Recoding No as 0 and Yes as 1
+data['y'] = ifelse(data$y == 'no','0','1')
+data$y = as.factor(data$y)
+```
+
+
+
+```{r}
+# Training/Testing Data Sets
+set.seed(1)
+selection = sample(1:nrow(data), size = ceiling(nrow(data)*0.7), replace = FALSE)
+training = data[selection,]
+testing = data[-selection,]
+```
+
+
+```{r}
+# Accuracy with logistic regression using all predictors
+logreg_datatrain<-glm(y ~ ., data = training, family = binomial)
+logreg_datatrain_testprob <- predict(logreg_datatrain, testing, type = "response")
+logreg_datatrain_testpred <- ifelse(logreg_datatrain_testprob > 0.5, "1", "0")
+logreg_data_cm <- table(logreg_datatrain_testpred, testing$y , dnn = c("Predicted","True"))
+sum(diag(logreg_data_cm))/sum(logreg_data_cm)
+```
+
+```{r}
+# Number of observations with y = "yes" in complete data set
+length(which((data$y)=="1"))
 ```
 
 
