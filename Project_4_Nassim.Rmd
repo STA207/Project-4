@@ -1,0 +1,22 @@
+---
+title: "STA 207 Project 4"
+author: "Nassim Ali-Chaouche"
+date: "2/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+bank.additional.full <- read.csv("~/Desktop/STA 207/Project 4/bank-additional/bank-additional-full.csv", sep=";")
+```
+
+```{r}
+sapply(bank.additional.full, class)
+```
+
+
