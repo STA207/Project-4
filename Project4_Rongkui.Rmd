@@ -13,10 +13,51 @@ dim(data)
 
 ```{r}
 set.seed(1)
+data$y = ifelse(data$y == 'yes', 1, 0)
+data = data[,-which(names(data) %in%  c("duration", "loan"))]
 selection = sample(1:nrow(data), size = ceiling(nrow(data)*0.7), replace = FALSE)
+
+#d = data[,which(names(data) %in% c("age", "education" ,"job", "marital", "default","housing","loan","contact","previous","poutcome","emp.var.rate","cons.price.idx","cons.conf.idx","euribor3m","nr.employed","y"))]
 training = data[selection,]
 dim(training) #28832    21
 testing = data[-selection,]
 dim(testing) #12356    21
+```
+
+```{r}
+library(MASS)
+model_std <- glm(y ~ ., family = binomial(link = "logit"),  data = training)
+#summary(model_std)
+```
+
+```{r}
+predictions <- predict.glm(model_std, newdata=testing, type= "response")
+predictions[predictions > 0.5] <- 1
+predictions[predictions <= 0.5] <- 0
+```
+
+```{r}
+1 - length(predictions[predictions == testing$y]) / length(predictions)
+table(predictions, testing$y)
+```
+
+- variable selection for logistic regression? not so much multilinearity so its fine?
+- low power of logistic regression model: 78% false negative (called 'no' when in fact 'yes')
+- imbalanced dataset (y == 'no' >> y =='yes')
+
+## upsampling:   
+```{r}
+library("groupdata2")
+training_upsample = upsample(training, cat_col = 'y')
+testing_upsample = upsample(testing, cat_col = 'y')
+```
+
+```{r}
+model_std_up <- glm(y ~ ., family = binomial(link = "logit"),  data = training_upsample)
+predictions_up <- predict.glm(model_std_up, newdata=testing_upsample, type= "response")
+predictions_up[predictions_up > 0.5] <- 1
+predictions_up[predictions_up <= 0.5] <- 0
+1 - length(predictions_up[predictions_up == testing_upsample$y]) / length(predictions_up)
+table(predictions_up, testing_upsample$y)
 ```
 
