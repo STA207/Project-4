@@ -1,0 +1,22 @@
+---
+title: "Project4_Rongkui"
+author: "Rongkui Han"
+date: "2/20/2020"
+output: html_document
+---
+
+```{r}
+data = read.delim("/Users/rongkui/Desktop/Classes/STA207/Project-4/bank-additional-full.csv", sep = ";")
+head(data)
+dim(data)
+```
+
+```{r}
+set.seed(1)
+selection = sample(1:nrow(data), size = ceiling(nrow(data)*0.7), replace = FALSE)
+training = data[selection,]
+dim(training) #28832    21
+testing = data[-selection,]
+dim(testing) #12356    21
+```
+
