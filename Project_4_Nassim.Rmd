@@ -14,6 +14,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(MASS)
 library(car)
+library(randomForest)
+library(ggplot2)
+library(dplyr)
 ```
 
 
@@ -58,5 +61,99 @@ sum(diag(logreg_data_cm))/sum(logreg_data_cm)
 # Number of observations with y = "yes" in complete data set
 length(which((data$y)=="1"))
 ```
+
+
+```{r}
+View(data)
+```
+
+
+# Random Forest
+
+```{r}
+model1 <- randomForest(y ~ ., data = training, importance = TRUE)
+```
+
+```{r}
+model1
+```
+
+
+```{r}
+# Tuning to find optimal mtry value (default is the square root of the number of predictors)
+
+bestmtry <- tuneRF(training[,1:20], training[,21], ntreeTry = 500, improve = 1e-5, stepFactor = 1.5, doBest = TRUE)
+```
+
+```{r}
+print(bestmtry)
+```
+
+
+```{r}
+model2 <- randomForest(y ~ ., data = training, mtry = 3, importance = TRUE)
+```
+
+```{r}
+print(model2)
+```
+
+
+```{r}
+# Predicting on the Testing Set
+predtesting <- predict(model2, testing, type = "class")
+
+# Accuracy 
+mean(predtesting == testing$y)
+
+# Confusion Matrix
+table(predtesting, testing$y)
+
+```
+
+
+```{r}
+# Checking for important variables
+importance(model2)
+```
+
+```{r}
+varImpPlot(model2)
+```
+
+```{r}
+# Bar Graph with Importance ranked by MeanDecreaseAccuracy
+# Reference: https://towardsdatascience.com/implement-random-forest-in-r-b00b69eb8501
+importance = importance(model2)
+varImportance = data.frame(Variables = row.names(importance),
+ Importance =round(importance[, "MeanDecreaseAccuracy"],2))
+rankImportance=varImportance%>%mutate(Rank=paste('#',dense_rank(desc(Importance))))
+ggplot(rankImportance,aes(x=reorder(Variables,Importance),
+ y=Importance,fill=Importance))+ 
+ geom_bar(stat='identity') + 
+ geom_text(aes(x = Variables, y = 0.5, label = Rank),
+ hjust=0, vjust=0.55, size = 4, colour = 'white') +
+ labs(x = 'Variables') +
+ coord_flip() + 
+ theme_classic()
+```
+
+
+```{r}
+# Bar Graph with Importance ranked by MeanDecreaseGini
+importance = importance(model2)
+varImportance = data.frame(Variables = row.names(importance),
+ Importance =round(importance[, "MeanDecreaseGini"],2))
+rankImportance=varImportance%>%mutate(Rank=paste('#',dense_rank(desc(Importance))))
+ggplot(rankImportance,aes(x=reorder(Variables,Importance),
+ y=Importance,fill=Importance))+ 
+ geom_bar(stat='identity') + 
+ geom_text(aes(x = Variables, y = 0.5, label = Rank),
+ hjust=0, vjust=0.55, size = 4, colour = 'white') +
+ labs(x = 'Variables') +
+ coord_flip() + 
+ theme_classic()
+```
+
 
 
