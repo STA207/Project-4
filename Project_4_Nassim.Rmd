@@ -45,6 +45,15 @@ data['y'] = ifelse(data$y == 'no','0','1')
 data$y = as.factor(data$y)
 ```
 
+```{r}
+# Removing some predictors from the dataset
+
+data = data[,-which(names(data) %in%  c("duration", "loan"))]
+```
+
+```{r}
+dim(data)
+```
 
 
 ```{r}
@@ -57,7 +66,7 @@ testing = data[-selection,]
 
 
 ```{r}
-# Accuracy with logistic regression using all predictors (original data set, no oversampling)
+# Accuracy with logistic regression (original data set, no oversampling)
 logreg_datatrain<-glm(y ~ ., data = training, family = binomial)
 logreg_datatrain_testprob <- predict(logreg_datatrain, testing, type = "response")
 logreg_datatrain_testpred <- ifelse(logreg_datatrain_testprob > 0.5, "1", "0")
@@ -66,8 +75,10 @@ sum(diag(logreg_data_cm))/sum(logreg_data_cm)
 ```
 
 ```{r}
-# Proportion of observations with y = "no" and "yes" in complete data set
+# Proportion of observations with y = "no" and "yes" in complete, training, and testing data sets
 prop.table(table(data$y))
+prop.table(table(training$y))
+prop.table(table(testing$y))
 ```
 
 
@@ -94,9 +105,117 @@ table(oversampled_training$y)
 ```
 
 
+# Logistic Regression on Upsampled Training Data Set
+
+```{r}
+logreg_datatrain2<-glm(y ~ ., data = oversampled_training, family = binomial)
+logreg_datatrain_testprob2 <- predict(logreg_datatrain2, testing, type = "response")
+logreg_datatrain_testpred2 <- ifelse(logreg_datatrain_testprob2 > 0.5, "1", "0")
+logreg_data_cm2 <- table(logreg_datatrain_testpred2, testing$y , dnn = c("Predicted","True"))
+sum(diag(logreg_data_cm2))/sum(logreg_data_cm2)
+```
 
 
-# Random Forest on Original Data Set
+
+
+# Random Forest with Oversampling on Training Data Set 
+
+
+
+```{r}
+model3 <- randomForest(y ~ ., data = oversampled_training, importance = TRUE)
+```
+
+```{r}
+model3
+```
+
+
+```{r}
+# Tuning to find optimal mtry value (default is the square root of the number of predictors)
+# ncol(oversampled_training) refers to the last column of the oversampled_training data set (last column is the response variable)
+
+bestmtry2 <- tuneRF(oversampled_training[,-ncol(oversampled_training)], oversampled_training[,ncol(oversampled_training)], ntreeTry = 500, improve = 1e-5, stepFactor = 1.5, doBest = TRUE)
+```
+
+```{r}
+print(bestmtry2)
+```
+
+```{r}
+model4 <- randomForest(y ~ ., data = oversampled_training, mtry = 13, importance = TRUE)
+```
+
+```{r}
+print(model4)
+```
+
+
+```{r}
+# Predicting on the Testing Set
+predtesting2 <- predict(model4, testing, type = "class")
+
+# Accuracy 
+mean(predtesting2 == testing$y)
+
+# Confusion Matrix
+table(predtesting2, testing$y)
+
+```
+
+
+```{r}
+# Checking for important variables
+importance(model4)
+```
+
+```{r}
+varImpPlot(model4)
+```
+
+```{r}
+# Bar Graph with Importance ranked by MeanDecreaseAccuracy
+# Reference: https://towardsdatascience.com/implement-random-forest-in-r-b00b69eb8501
+importance = importance(model4)
+varImportance = data.frame(Variables = row.names(importance),
+ Importance =round(importance[, "MeanDecreaseAccuracy"],2))
+rankImportance=varImportance%>%mutate(Rank=paste('#',dense_rank(desc(Importance))))
+ggplot(rankImportance,aes(x=reorder(Variables,Importance),
+ y=Importance,fill=Importance))+ 
+ geom_bar(stat='identity') + 
+ geom_text(aes(x = Variables, y = 0.5, label = Rank),
+ hjust=0, vjust=0.55, size = 4, colour = 'white') +
+ labs(x = 'Variables') +
+ coord_flip() + 
+ theme_classic()
+```
+
+```{r}
+# Bar Graph with Importance ranked by MeanDecreaseGini
+importance = importance(model4)
+varImportance = data.frame(Variables = row.names(importance),
+ Importance =round(importance[, "MeanDecreaseGini"],2))
+rankImportance=varImportance%>%mutate(Rank=paste('#',dense_rank(desc(Importance))))
+ggplot(rankImportance,aes(x=reorder(Variables,Importance),
+ y=Importance,fill=Importance))+ 
+ geom_bar(stat='identity') + 
+ geom_text(aes(x = Variables, y = 0.5, label = Rank),
+ hjust=0, vjust=0.55, size = 4, colour = 'white') +
+ labs(x = 'Variables') +
+ coord_flip() + 
+ theme_classic()
+```
+
+
+
+
+
+
+
+
+
+
+# Random Forest on Original Training Data Set
 
 ```{r}
 model1 <- randomForest(y ~ ., data = training, importance = TRUE)
@@ -109,8 +228,9 @@ model1
 
 ```{r}
 # Tuning to find optimal mtry value (default is the square root of the number of predictors)
+# ncol(training) refers to the last column of the training data set (last column is the response variable)
 
-bestmtry <- tuneRF(training[,1:20], training[,21], ntreeTry = 500, improve = 1e-5, stepFactor = 1.5, doBest = TRUE)
+bestmtry <- tuneRF(training[,-ncol(training)], training[,ncol(training)], ntreeTry = 500, improve = 1e-5, stepFactor = 1.5, doBest = TRUE)
 ```
 
 ```{r}
@@ -182,12 +302,6 @@ ggplot(rankImportance,aes(x=reorder(Variables,Importance),
  coord_flip() + 
  theme_classic()
 ```
-
-
-
-
-# Random Forest with Oversampling on Training Data Set 
-
 
 
 
