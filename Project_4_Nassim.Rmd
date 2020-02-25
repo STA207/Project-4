@@ -17,6 +17,12 @@ library(car)
 library(randomForest)
 library(ggplot2)
 library(dplyr)
+library(caret)
+library(pscl)
+library(ResourceSelection)
+library(survey)
+library(pROC)
+library(ROCR)
 ```
 
 
