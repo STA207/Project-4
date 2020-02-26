@@ -172,25 +172,20 @@ training_upsample = upsample(training, cat_col = 'y')
 ```
 
 ```{r}
-#model
-nB1 = naiveBayes(training_upsample$y ~ . , data = training_upsample)
+#Full Model
+nB_full = naiveBayes(training_upsample$y ~ . , data = training_upsample)
 
 #Prediction
-bayes.predict = predict(nB1, testing)
+bayes.predict = predict(nB_full, testing)
 
-result = data.frame(y.act = testing$y,y.pred = bayes.predict)
+result.full = data.frame(y.act = testing$y,y.pred = bayes.predict)
 
-
-
-```
-
-```{r}
-table(result$y.act, result$y.pred) 
+table(result.full$y.act, result.full$y.pred) 
 #
 #               Pred:0               Pred:1
 #--------|-------------------|--------------------------
-# Act:0  |  True Neg (.80)  |   False Positive (.20)
-#--------|-------------------|---------------------------                           | 
+# Act:0  |  True Neg (.80)   |   False Positive (.20)
+#--------|-------------------|---------------------------       
 # Act:1  | False Neg (.36)   |    True Positive (.64)
 #------------------------------------------------------
 
@@ -198,19 +193,44 @@ table(result$y.act, result$y.pred)
 ```
 
 
+
+
 ```{r}
-#try different combo
+#Optimal Model
 
 #model
-nB1 = naiveBayes(training_upsample$y ~ age + marital + job + education + default + housing + loan , data = training_upsample)
+nB_opt = naiveBayes(training_upsample$y ~ age + marital + job + education + default + housing + loan  + emp.var.rate + cons.price.idx + euribor3m+  nr.employed , data = training_upsample)
 
 #Prediction
-bayes.predict = predict(nB1, testing)
+bayes.predict = predict(nB_opt, testing)
 
-result = data.frame(y.act = testing$y,y.pred = bayes.predict)
+result.opt = data.frame(y.act = testing$y,y.pred = bayes.predict)
 
-a = data.frame(table(result$y.act, result$y.pred) )
+table(result.opt$y.act, result.opt$y.pred)
 
-a[4,3]/(a[4,3]+a[2,3])
+
+#
+#               Pred:0               Pred:1
+#--------|-------------------|--------------------------
+# Act:0  |  True Neg (.73)   |   False Positive (.27)
+#--------|-------------------|---------------------------     | 
+# Act:1  | False Neg (.29)   |    True Positive (.71)
+#
+
 ```
 
+```{r}
+#Prediction Probabilities
+
+full_prob = data.frame(predict(nB_full, testing, type = "raw"))
+
+optimal_prob = bayes.predict = predict(nB_opt, testing, type = "raw")
+
+
+
+result_full = data.frame(y.act = testing$y, y.pred = result.full$y.pred, y.prob.no = full_prob$no, y.prob.yes = full_prob$yes )
+
+result_optimal = data.frame(y.act = testing$y, y.pred = result.full$y.pred, y.prob.no = full_prob$no, y.prob.yes = full_prob$yes )
+
+
+```
