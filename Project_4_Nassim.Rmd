@@ -105,6 +105,20 @@ table(oversampled_training$y)
 ```
 
 
+# Another Method to Create An Upsampled Training Data Set
+
+
+```{r}
+training_upsample = upsample(training, cat_col = 'y')
+```
+
+```{r}
+table(training_upsample$y)
+```
+
+
+
+
 # Logistic Regression on Upsampled Training Data Set
 
 ```{r}
@@ -114,6 +128,81 @@ logreg_datatrain_testpred2 <- ifelse(logreg_datatrain_testprob2 > 0.5, "1", "0")
 logreg_data_cm2 <- table(logreg_datatrain_testpred2, testing$y , dnn = c("Predicted","True"))
 sum(diag(logreg_data_cm2))/sum(logreg_data_cm2)
 ```
+
+
+
+
+
+
+### Final Logistic Regression Model Evaluation
+
+Model:
+
+```{r, include = FALSE}
+model_std <- glm(y ~ ., family = binomial(link = "logit"),  data = training_upsample)
+
+```
+
+
+# Pseudo R^2:
+
+```{r, include = FALSE}
+pR2(model_std)
+
+# (Source: http://cowles.yale.edu/sites/default/files/files/pub/d04/d0474.pdf, page 35 for interpretating of the McFadden score)
+```
+
+The McFadden Score, which is a measure of goodness-of-fit/predictive ability, is 0.23. According to McFadden (1977), values of 0.2 and 0.4 represent an excellent fit. 
+
+
+# Confusion Matrix
+
+```{r, echo = FALSE}
+logreg_datatrain_testprob3 <- predict(model_std, testing, type = "response")
+logreg_datatrain_testpred3 <- ifelse(logreg_datatrain_testprob3 > 0.5, "1", "0")
+logreg_data_cm3 <- table(logreg_datatrain_testpred3, testing$y , dnn = c("Predicted","True"))
+logreg_data_cm3 
+```
+
+```{r, include = FALSE}
+# True Positive Rate
+
+838/(838+540)
+```
+
+
+# ROC Curve
+
+
+```{r, include = FALSE}
+prob <- predict(model_std, newdata=testing, type = "response")
+pred <- prediction(prob, testing$y)
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+plot(perf)
+```
+
+```{r, include = FALSE}
+# AUC
+
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+```
+
+The AUC value is approximately 0.79. Values above 0.80 indicate that the model does a good job in differentiating between the "no" and "yes" categories of the response variable, and thus our model has good fit according to the AUC measure. 
+
+
+
+
+### Final Logistic Model Diagnostics
+
+
+
+
+
+
+
+
 
 
 
@@ -220,96 +309,6 @@ ggplot(rankImportance,aes(x=reorder(Variables,Importance),
 
 
 
-
-
-
-# Random Forest on Original Training Data Set
-
-```{r}
-model1 <- randomForest(y ~ ., data = training, importance = TRUE)
-```
-
-```{r}
-model1
-```
-
-
-```{r}
-# Tuning to find optimal mtry value (default is the square root of the number of predictors)
-# ncol(training) refers to the last column of the training data set (last column is the response variable)
-
-bestmtry <- tuneRF(training[,-ncol(training)], training[,ncol(training)], ntreeTry = 500, improve = 1e-5, stepFactor = 1.5, doBest = TRUE)
-```
-
-```{r}
-print(bestmtry)
-```
-
-
-```{r}
-model2 <- randomForest(y ~ ., data = training, mtry = 3, importance = TRUE)
-```
-
-```{r}
-print(model2)
-```
-
-
-```{r}
-# Predicting on the Testing Set
-predtesting <- predict(model2, testing, type = "class")
-
-# Accuracy 
-mean(predtesting == testing$y)
-
-# Confusion Matrix
-table(predtesting, testing$y)
-
-```
-
-
-```{r}
-# Checking for important variables
-importance(model2)
-```
-
-```{r}
-varImpPlot(model2)
-```
-
-```{r}
-# Bar Graph with Importance ranked by MeanDecreaseAccuracy
-# Reference: https://towardsdatascience.com/implement-random-forest-in-r-b00b69eb8501
-importance = importance(model2)
-varImportance = data.frame(Variables = row.names(importance),
- Importance =round(importance[, "MeanDecreaseAccuracy"],2))
-rankImportance=varImportance%>%mutate(Rank=paste('#',dense_rank(desc(Importance))))
-ggplot(rankImportance,aes(x=reorder(Variables,Importance),
- y=Importance,fill=Importance))+ 
- geom_bar(stat='identity') + 
- geom_text(aes(x = Variables, y = 0.5, label = Rank),
- hjust=0, vjust=0.55, size = 4, colour = 'white') +
- labs(x = 'Variables') +
- coord_flip() + 
- theme_classic()
-```
-
-
-```{r}
-# Bar Graph with Importance ranked by MeanDecreaseGini
-importance = importance(model2)
-varImportance = data.frame(Variables = row.names(importance),
- Importance =round(importance[, "MeanDecreaseGini"],2))
-rankImportance=varImportance%>%mutate(Rank=paste('#',dense_rank(desc(Importance))))
-ggplot(rankImportance,aes(x=reorder(Variables,Importance),
- y=Importance,fill=Importance))+ 
- geom_bar(stat='identity') + 
- geom_text(aes(x = Variables, y = 0.5, label = Rank),
- hjust=0, vjust=0.55, size = 4, colour = 'white') +
- labs(x = 'Variables') +
- coord_flip() + 
- theme_classic()
-```
 
 
 
