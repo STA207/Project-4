@@ -6,15 +6,37 @@ output: html_document
 ---
 
 ```{r}
+library(MASS)
 data = read.delim("/Users/rongkui/Desktop/Classes/STA207/Project-4/bank-additional-full.csv", sep = ";")
 head(data)
 dim(data)
 ```
 
 ```{r}
-set.seed(1)
-data$y = ifelse(data$y == 'yes', 1, 0)
+#data$y = ifelse(data$y == 'yes', 1, 0)
 data = data[,-which(names(data) %in%  c("duration", "loan"))]
+data = data[,-which(names(data) %in%  c("duration"))]
+
+#data$job_unk <- ifelse(data$job == "unknown", 1, 0)
+#data$edu_unk <- ifelse(data$education == "unknown", 1, 0)
+#data$cont_unk <- ifelse(data$contact == "unknown", 1, 0)
+#data$pout_unk <- ifelse(data$poutcome == "unknown", 1, 0)
+
+# This code of chunk make the character data into numeic format
+#data$job <- as.numeric(as.factor(data$job))
+#data$marital <- as.numeric(as.factor(data$marital))
+#data$education <- as.numeric(as.factor(data$education))
+#data$default<- ifelse(data$default == "yes", 1, 0)
+#data$housing <- ifelse(data$housing== "yes", 1, 0)
+#data$loan<- ifelse(data$loan== "yes", 1, 0)
+#data$month <- as.numeric(as.factor(data$month))
+#data$contact <- as.numeric(as.factor(data$contact))
+#data$poutcome <- as.numeric(as.factor(data$poutcome))
+data$y <- ifelse(data$y== "yes", 1, 0)
+```
+
+```{r}
+set.seed(1)
 selection = sample(1:nrow(data), size = ceiling(nrow(data)*0.7), replace = FALSE)
 
 #d = data[,which(names(data) %in% c("age", "education" ,"job", "marital", "default","housing","loan","contact","previous","poutcome","emp.var.rate","cons.price.idx","cons.conf.idx","euribor3m","nr.employed","y"))]
@@ -23,10 +45,98 @@ dim(training) #28832    21
 testing = data[-selection,]
 dim(testing) #12356    21
 ```
+## upsampling:   
 
 ```{r}
-library(MASS)
-model_std <- glm(y ~ ., family = binomial(link = "logit"),  data = training)
+library("groupdata2")
+training_upsample = upsample(training, cat_col = 'y')
+#testing_upsample = upsample(testing, cat_col = 'y')
+```
+
+## variable selection using LASSO regression  
+```{r}
+library(glmnet)
+x = training_upsample[,-which(names(training_upsample) == "y")]
+y = training_upsample[,which(names(training_upsample) == "y")]
+x = model.matrix( ~., x)
+```
+
+```{r}
+bank.lasso <- cv.glmnet(x = as.matrix(x), y = y, nfolds=10, type.measure="class", parallel=TRUE, family='binomial', alpha = 1, nlambda=100)
+print(bank.lasso$lambda.min)
+plot(bank.lasso)
+```
+
+```{r}
+lasso.coefs <- as.data.frame(as.vector(coef(bank.lasso, s = bank.lasso$lambda.min)), 
+                             row.names = rownames(coef(bank.lasso)))
+print(lasso.coefs)
+
+names(lasso.coefs) <- 'coefficient'
+lasso_features <- rownames(lasso.coefs)[lasso.coefs != 0]
+print(lasso_features)
+lasso_features = c("age","job","marital","education","default","housing","contact","month","day_of_week","campaign","pdays","previous","poutcome","emp.var.rate","cons.price.idx","con.conf.idx", "euribor3m")
+
+lasso_training = training_upsample[,intersect(colnames(data), c(lasso_features, "y"))] 
+lasso_testing = testing[,intersect(colnames(data), c(lasso_features, "y"))] 
+
+model_lasso <- glm(y ~ ., family = binomial(link = "logit"),  data = lasso_training)
+#summary(model_lasso)
+
+predictions_lasso <- predict.glm(model_lasso, newdata=lasso_testing, type= "response")
+predictions_lasso[predictions_lasso > 0.5] <- 1
+predictions_lasso[predictions_lasso <= 0.5] <- 0
+
+table(predictions_lasso, lasso_testing$y)
+```
+
+```{r}
+839/(839+539)
+```
+
+
+> really bad. 
+
+> well guess the lasso made it slightly better...? Try ridge shrinking next:   
+
+```{r}
+bank.ridge <- cv.glmnet(x= as.matrix(x), y = y, nfolds=10,type.measure="class", family='binomial', alpha = 0, nlambda=100)
+print(bank.ridge$lambda.min)
+plot(bank.ridge)
+```
+
+```{r}
+ridge.coefs <- as.data.frame(as.vector(coef(bank.ridge, s = bank.ridge$lambda.min)), 
+                             row.names = rownames(coef(bank.ridge)))
+
+names(ridge.coefs) <- 'coefficient'
+ridge_features <- rownames(ridge.coefs)[ridge.coefs != 0]
+print(ridge_features)
+
+ridge_features = c("age","job","marital","education","default","housing","contact","month","day_of_week","campaign","pdays","previous","poutcome","emp.var.rate","cons.price.idx","con.conf.idx", "euribor3m","nr.employed")
+
+ridge_training = training_upsample[,intersect(colnames(data), c(ridge_features, "y"))] 
+ridge_testing = testing[,intersect(colnames(data), c(ridge_features, "y"))] 
+
+model_ridge <- glm(y ~ ., family = binomial(link = "logit"),  data = ridge_training)
+#summary(model_ridge)
+
+predictions_ridge <- predict.glm(model_ridge, newdata=ridge_testing, type= "response")
+predictions_ridge[predictions_ridge > 0.5] <- 1
+predictions_ridge[predictions_ridge <= 0.5] <- 0
+
+table(predictions_ridge, ridge_testing$y)
+```
+
+```{r}
+tru_pos_ridge = 839/(839+539)
+tru_pos_ridge
+```
+
+>MASS::glm:  
+
+```{r}
+model_std <- glm(y ~ ., family = binomial(link = "logit"),  data = training_upsample)
 #summary(model_std)
 ```
 
@@ -41,23 +151,18 @@ predictions[predictions <= 0.5] <- 0
 table(predictions, testing$y)
 ```
 
+
+```{r}
+848/(848+530)
+```
+
+
+
+
 - variable selection for logistic regression? not so much multilinearity so its fine?
 - low power of logistic regression model: 78% false negative (called 'no' when in fact 'yes')
 - imbalanced dataset (y == 'no' >> y =='yes')
 
-## upsampling:   
-```{r}
-library("groupdata2")
-training_upsample = upsample(training, cat_col = 'y')
-testing_upsample = upsample(testing, cat_col = 'y')
-```
 
-```{r}
-model_std_up <- glm(y ~ ., family = binomial(link = "logit"),  data = training_upsample)
-predictions_up <- predict.glm(model_std_up, newdata=testing_upsample, type= "response")
-predictions_up[predictions_up > 0.5] <- 1
-predictions_up[predictions_up <= 0.5] <- 0
-1 - length(predictions_up[predictions_up == testing_upsample$y]) / length(predictions_up)
-table(predictions_up, testing_upsample$y)
-```
+
 
