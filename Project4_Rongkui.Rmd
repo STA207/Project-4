@@ -5,37 +5,16 @@ date: "2/20/2020"
 output: html_document
 ---
 
-```{r}
+```{r loaddata, include = FALSE, eval = FALSE}
 library(MASS)
 data = read.delim("/Users/rongkui/Desktop/Classes/STA207/Project-4/bank-additional-full.csv", sep = ";")
 head(data)
 dim(data)
-```
-
-```{r}
-#data$y = ifelse(data$y == 'yes', 1, 0)
 data = data[,-which(names(data) %in%  c("duration", "loan"))]
-data = data[,-which(names(data) %in%  c("duration"))]
-
-#data$job_unk <- ifelse(data$job == "unknown", 1, 0)
-#data$edu_unk <- ifelse(data$education == "unknown", 1, 0)
-#data$cont_unk <- ifelse(data$contact == "unknown", 1, 0)
-#data$pout_unk <- ifelse(data$poutcome == "unknown", 1, 0)
-
-# This code of chunk make the character data into numeic format
-#data$job <- as.numeric(as.factor(data$job))
-#data$marital <- as.numeric(as.factor(data$marital))
-#data$education <- as.numeric(as.factor(data$education))
-#data$default<- ifelse(data$default == "yes", 1, 0)
-#data$housing <- ifelse(data$housing== "yes", 1, 0)
-#data$loan<- ifelse(data$loan== "yes", 1, 0)
-#data$month <- as.numeric(as.factor(data$month))
-#data$contact <- as.numeric(as.factor(data$contact))
-#data$poutcome <- as.numeric(as.factor(data$poutcome))
 data$y <- ifelse(data$y== "yes", 1, 0)
 ```
 
-```{r}
+```{r traingtest, include = FALSE, eval = FALSE}
 set.seed(1)
 selection = sample(1:nrow(data), size = ceiling(nrow(data)*0.7), replace = FALSE)
 
@@ -47,27 +26,28 @@ dim(testing) #12356    21
 ```
 ## upsampling:   
 
-```{r}
+```{r upsample, include = FALSE, eval = FALSE}
 library("groupdata2")
 training_upsample = upsample(training, cat_col = 'y')
 #testing_upsample = upsample(testing, cat_col = 'y')
 ```
 
+
+```{r xy, include = FALSE, eval = FALSE}
 ## variable selection using LASSO regression  
-```{r}
 library(glmnet)
 x = training_upsample[,-which(names(training_upsample) == "y")]
 y = training_upsample[,which(names(training_upsample) == "y")]
 x = model.matrix( ~., x)
 ```
 
-```{r}
+```{r lasso1, include = FALSE, eval = FALSE}
 bank.lasso <- cv.glmnet(x = as.matrix(x), y = y, nfolds=10, type.measure="class", parallel=TRUE, family='binomial', alpha = 1, nlambda=100)
 print(bank.lasso$lambda.min)
 plot(bank.lasso)
 ```
 
-```{r}
+```{r lasso2, include = FALSE, eval = FALSE}
 lasso.coefs <- as.data.frame(as.vector(coef(bank.lasso, s = bank.lasso$lambda.min)), 
                              row.names = rownames(coef(bank.lasso)))
 print(lasso.coefs)
@@ -88,24 +68,21 @@ predictions_lasso[predictions_lasso > 0.5] <- 1
 predictions_lasso[predictions_lasso <= 0.5] <- 0
 
 table(predictions_lasso, lasso_testing$y)
-```
-
-```{r}
 839/(839+539)
+
+#really bad. 
+#well guess the lasso made it slightly better...? Try ridge shrinking next:
 ```
 
 
-> really bad. 
+```{r ridge1, include = FALSE, eval = FALSE}
 
-> well guess the lasso made it slightly better...? Try ridge shrinking next:   
-
-```{r}
 bank.ridge <- cv.glmnet(x= as.matrix(x), y = y, nfolds=10,type.measure="class", family='binomial', alpha = 0, nlambda=100)
 print(bank.ridge$lambda.min)
 plot(bank.ridge)
 ```
 
-```{r}
+```{r ridge2, include = FALSE, eval = FALSE}
 ridge.coefs <- as.data.frame(as.vector(coef(bank.ridge, s = bank.ridge$lambda.min)), 
                              row.names = rownames(coef(bank.ridge)))
 
@@ -126,42 +103,99 @@ predictions_ridge[predictions_ridge > 0.5] <- 1
 predictions_ridge[predictions_ridge <= 0.5] <- 0
 
 table(predictions_ridge, ridge_testing$y)
-```
-
-```{r}
 tru_pos_ridge = 839/(839+539)
 tru_pos_ridge
 ```
 
->MASS::glm:  
 
-```{r}
+```{r, include = FALSE, eval = FALSE}
+##just logistic regression
 model_std <- glm(y ~ ., family = binomial(link = "logit"),  data = training_upsample)
-#summary(model_std)
-```
-
-```{r}
+summary(model_std)
 predictions <- predict.glm(model_std, newdata=testing, type= "response")
 predictions[predictions > 0.5] <- 1
 predictions[predictions <= 0.5] <- 0
-```
-
-```{r}
 1 - length(predictions[predictions == testing$y]) / length(predictions)
 table(predictions, testing$y)
-```
-
-
-```{r}
 848/(848+530)
+
+logit_res = data.frame(y.act = ifelse(testing$y == 1, "yes", "no"), y.pred = ifelse(predictions > 0.5, "yes","no"), y.prob.no = 1-predictions, y.prob.yes = predictions)
+head(logit_res)
+rownames(logit_res) = seq(1, length(predictions), by = 1)
+write.csv(logit_res, file  = "/Users/rongkui/Desktop/Classes/STA207/Project-4/Logistic_Regression_Full_Result.csv")
 ```
 
+***
 
+### Team ID: Team 6
 
+#### NAME: Connor Rosenberg
+#### NAME: Rongkui Han
+#### NAME: Yuqing Yang
+#### NAME: Nassim Ali-Chaouche
 
-- variable selection for logistic regression? not so much multilinearity so its fine?
-- low power of logistic regression model: 78% false negative (called 'no' when in fact 'yes')
-- imbalanced dataset (y == 'no' >> y =='yes')
+***
+
+## 1.0 Introduction     
+
+#### 1.1 Background     
+
+This study considers real data collected from a Portuguese retail bank, from May 2008 to November 2010, in a total of 41,188 phone contacts. This financial campaign focused on targeting through telemarketing phone calls to sell long-term deposits. The response variable of the dataset is a binary successful or unsuccessful contact. Marketing selling campaigns constitute a typical strategy to enhance business. Technology enables rethinking marketing by focusing on maximizing customer lifetime value through the evaluation of available information and customer metrics, thus allowing organizations to select the best set of clients, i.e., that are more likely to subscribe a product (S. Moro, P. Cortez and P. Rita., 2014). The goal of this study is predict if the client will subscribe a long-term deposit using demographic, campaign and economic information. 
+
+Many versions of the dataset was made available on the ([UCI Machine learning repository](https://archive.ics.uci.edu/ml/datasets/Bank+Marketing#)). The one selected for this analysis contained all samples and the highest number of variables to maximize the information input for prediction purposes. The dataset is unbalanced, as only 4.640 (11.27%) records are related with successful outcomes. It must be stressed that for the purpose of this analysis, a false negative error (Type II error) in prediction incurs a much higher cost than a false positivce error (Type I error). If a customer unlikely to subscribe to the product is falsely identified as a potential customer (false positive), it only costs the bank caller a few minutes to make an unsuccessful phonecall; on the other hand, if a true potential customer is dismissed by the model as an unlikely target, the bank runs the risk of losing thousands of dollars of deposits the customer could put into the bank. Therefore, we make it a priority in our study to build the model that has the highest recall rate for true positive cases.               
+
+#### 1.2 Questions of Interest   
+
+- Can we predict if a client will subscribe a long-term deposit using demographic, campaign and economic information?     
+- What model, among (a) logistic regression, (b) random forest classification and (c) naive Bayes classification, perform the best in terms of capturing the highest number of true successful outcomes in its prediction?
+
+## 2.0 Analysis Plan   
+
+#### 2.1 Population and study design
+
+#### 2.2 Descriptive Analysis   
+
+task 3: Explore this dataset and generate summary statistics (in forms of tables or plots) that you find crucial for your clients to know. 
+
+#### 2.3 Modeul buiding     
+##### 2.3.1 Logistic Regression
+
+task 4: Build a prediction model for whether a subject will sign on to a long-term deposit. You will use logistic regression in this task. Specifically, you will   
+a. write down a proper logistic regression model,   
+
+##### 2.3.2 Random Forest Classification
+##### 2.3.3 Neive Bayes Classification   
+
+#### 2.4 Model Diagnostics     
+
+## 3.0 Results    
+
+#### 3.1 Descriptive Analysis   
+
+#### 3.2 Model Fitting and Prediction Performance    
+##### 3.3.1 Logistic Regression     
+
+4b. fit the model,   
+4c. evaluate the performance of the fitted model,   
+
+##### 3.3.2 Random Forest Classification
+
+task 5: Build another prediction model using a method of your choice, and compare its performance to the logistic regression.  
+
+##### 3.3.3 Neive Bayes Classification  
+
+#### 3.3 Model Diagnostics     
+
+4d. and conduct model diagnostic and/or sensitivity analysis.     
+
+## 4.0 Discussion
+
+task 6: Explain the gap in the performances, if any, to your supervisor, who knows statistics quite well and only believes in data and mathematics.   
+
+**In any of these tasks, if a statistical method is employed, you need to clearly state the model and justify your choice.**   
+
+## Referece    
+S. Moro, P. Cortez and P. Rita. A Data-Driven Approach to Predict the Success of Bank Telemarketing. Decision Support Systems, Elsevier, 62:22-31, June 2014
 
 
 
