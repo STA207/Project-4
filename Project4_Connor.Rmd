@@ -224,13 +224,78 @@ table(result.opt$y.act, result.opt$y.pred)
 
 full_prob = data.frame(predict(nB_full, testing, type = "raw"))
 
-optimal_prob = bayes.predict = predict(nB_opt, testing, type = "raw")
+optimal_prob = data.frame(predict(nB_opt, testing, type = "raw"))
 
 
 
 result_full = data.frame(y.act = testing$y, y.pred = result.full$y.pred, y.prob.no = full_prob$no, y.prob.yes = full_prob$yes )
+result_optimal = data.frame(y.act = testing$y, y.pred = result.opt$y.pred, y.prob.no = optimal_prob$no, y.prob.yes = optimal_prob$yes )
 
-result_optimal = data.frame(y.act = testing$y, y.pred = result.full$y.pred, y.prob.no = full_prob$no, y.prob.yes = full_prob$yes )
+
+write.csv(result_full, "Naive_Bayes_Full_Result.csv")
+write.csv(result_optimal, "Naive_Bayes_Optimal_Result.csv")
 
 
 ```
+
+
+#Final Code Chunk
+
+```{r}
+#install.packages("e1071")
+library(e1071)
+
+bank.bayes = bank[,c(1,2,3,4,5,6,7,8,9,10,12,13,14,15,16,17,18,19,20,21)]
+
+set.seed(1)
+selection = sample(1:nrow(bank.bayes), size = ceiling(nrow(bank.bayes)*0.7), replace = FALSE)
+training = bank.bayes[selection,]
+#dim(training) #28832    21
+testing = bank.bayes[-selection,]
+#dim(testing) #12356    21
+
+#######################################
+#Full Model
+nB_full = naiveBayes(training_upsample$y ~ . , data = training_upsample)
+
+###Prediction
+bayes.predict = predict(nB_full, testing)
+
+#### Result
+result.full = data.frame(y.act = testing$y,y.pred = bayes.predict)
+table(result.full$y.act, result.full$y.pred) 
+########################################
+
+#######################################
+#Optimal Model
+nB_opt = naiveBayes(training_upsample$y ~ age + marital + job + education + default + housing + loan  + emp.var.rate + cons.price.idx + euribor3m +  nr.employed , data = training_upsample)
+
+#### Prediction
+bayes.predict = predict(nB_opt, testing)
+
+#### Result
+result.opt = data.frame(y.act = testing$y,y.pred = bayes.predict)
+table(result.opt$y.act, result.opt$y.pred)
+########################################
+```
+
+
+#Analysis Plan
+
+##Naive Bayes Classifier
+
+Another model to consider is the Naive Bayes Classifier. This model, based on Bayes’ theorem, provides a way to calculate the posterior probability of each observation. From these posterior probabilities, we can predict whether a potential customer will sign up for a long-term deposit. 
+
+The Naive Bayes Classifier is a very versatile model as it can both handle categorical and continuous variates. The model assumes *class conditional independence* between our predictors on the response. That is, there are no interactions between predictor variables and the effect of each predictor on the response class is independent of all other predictors. **SHOW THAT WE CERTIFY THIS ASSUMPTION**.
+
+We will present two Naive Bayes Classification models. The first model, *the full model*, will be fit on the full list of predictors from the data set. The second model, *the optimal model*, will include only the variates which returned the highest proportion of true-positive outcomes when tested on the validation dataset.
+
+
+# Results
+From the full model, which used all 20 predictors, our optimal model performed better on the validation dataset while only including 11 variates. Moreover, the optimal model does not use any of the previous campaign data. This allows us to make predictions, with the same level of certainty, about new and existing customers. Moreover, the optimal model ignores the effect due to time, which means our predictions are relevant regardless of the day of the week or month in the year.  **CONCLUSION SENTENCE**
+
+
+##Full Model
+
+
+## Optimal Model
