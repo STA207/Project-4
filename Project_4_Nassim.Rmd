@@ -163,6 +163,14 @@ table(predtesting2, testing$y)
 
 ```
 
+```{r}
+# True Positive
+
+528/(850+528)
+
+
+```
+
 
 ```{r}
 # Checking for important variables
