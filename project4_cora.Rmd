@@ -1,0 +1,119 @@
+---
+output: html_document
+---
+
+```{r}
+library(dplyr)
+data <- read.csv("bank-additional-full.csv", sep = ";")
+head(data)
+```
+
+```{r}
+data2 <- data %>% 
+  select(-duration)
+```
+
+```{r}
+summary(training$y)
+
+wt = if_else(training$y == 'no', 1, 10)
+```
+
+```{r}
+set.seed(1)
+selection = sample(1:nrow(data2), size = ceiling(nrow(data)*0.7), replace = FALSE)
+training = data2[selection,]
+dim(training) #28832    21
+testing = data2[-selection,]
+dim(testing) #12356    21
+
+```
+
+```{r}
+fit = glm(y~., family = binomial, data = training_upsample)
+#fit = glm(y~., family = binomial, data = training)
+summary(fit)
+library(car)
+Anova(fit)
+```
+
+```{r}
+predict_y <- if_else(predict(fit, testing, type = 'response')>=0.5, 1, 0)
+test_y <- if_else(testing$y == 'yes', 1, 0)
+#summary(factor(predcit_y))
+cm = table(test_y, predict_y)
+recall = cm[2,2]/sum(cm[2,])
+precision = cm[2,2]/sum(cm[,2])
+f1 = 2*recall*precision/(precision+recall)
+
+
+```
+
+```{r}
+library(pROC)
+rocplot <- roc(test_y ~ predict(fit, testing, type = 'response'), legacy.axes=TRUE)
+plot(rocplot)
+auc(rocplot)
+```
+
+```{r}
+library(ranger)
+library(rsample)
+
+library("groupdata2")
+training_upsample = upsample(training, cat_col = 'y')
+testing_upsample = upsample(testing, cat_col = 'y')
+```
+
+```{r}
+#set.seed(123)
+#data_split <- initial_split(data2, prop = .7)
+#train <- training(data_split)
+#test <- testing(data_split)
+
+rf <- ranger(y ~ ., data = training_upsample, write.forest = T)
+pred_train <- predict(rf, data = training)
+pred_test <- predict(rf, data = testing)
+
+hyper_grid <- expand.grid(
+  mtry = seq(2,10, by = 2),
+  num_tree = seq(300, 1000, by = 100)
+)
+
+for(i in 1:nrow(hyper_grid)){
+  model <- ranger(
+    formula = y~.,
+    data = training_upsample,
+    num.trees = hyper_grid$num_tree[i],
+    mtry = hyper_grid$mtry[i],
+    seed = 123
+  )
+  
+  cf = rf$confusion.matrix
+  hyper_grid$sensitivity = cf[2,2]/sum(cf[2,])
+  hyper_grid$precision = cf[2,2]/sum(cf[,2])
+}
+
+#write.csv(hyper_grid, 'hyper_grid.csv')
+
+hyper_grid %>% 
+  mutate(f1_score = 2*precision*sensitivity/(precision+sensitivity)) %>%
+  arrange(sensitivity) %>% 
+  head(50)
+  
+  
+```
+
+```{r}
+#rf$confusion.matrix
+table(training$y, predictions(pred_train))
+```
+
+```{r}
+cm = table(testing$y, predictions(pred_test))
+recall = cm[2,2]/sum(cm[2,])
+precision = cm[2,2]/sum(cm[,2])
+f1 = 2*recall*precision/(precision+recall)
+
+```
+
