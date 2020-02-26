@@ -5,16 +5,17 @@ date: "2/20/2020"
 output: html_document
 ---
 
-```{r}
+```{r loaddata, include = FALSE, eval = FALSE}
+library(MASS)
 data = read.delim("/Users/rongkui/Desktop/Classes/STA207/Project-4/bank-additional-full.csv", sep = ";")
 head(data)
 dim(data)
+data = data[,-which(names(data) %in%  c("duration", "loan"))]
+data$y <- ifelse(data$y== "yes", 1, 0)
 ```
 
-```{r}
+```{r traingtest, include = FALSE, eval = FALSE}
 set.seed(1)
-data$y = ifelse(data$y == 'yes', 1, 0)
-data = data[,-which(names(data) %in%  c("duration", "loan"))]
 selection = sample(1:nrow(data), size = ceiling(nrow(data)*0.7), replace = FALSE)
 
 #d = data[,which(names(data) %in% c("age", "education" ,"job", "marital", "default","housing","loan","contact","previous","poutcome","emp.var.rate","cons.price.idx","cons.conf.idx","euribor3m","nr.employed","y"))]
@@ -23,41 +24,181 @@ dim(training) #28832    21
 testing = data[-selection,]
 dim(testing) #12356    21
 ```
+## upsampling:   
 
-```{r}
-library(MASS)
-model_std <- glm(y ~ ., family = binomial(link = "logit"),  data = training)
-#summary(model_std)
+```{r upsample, include = FALSE, eval = FALSE}
+library("groupdata2")
+training_upsample = upsample(training, cat_col = 'y')
+#testing_upsample = upsample(testing, cat_col = 'y')
 ```
 
-```{r}
+
+```{r xy, include = FALSE, eval = FALSE}
+## variable selection using LASSO regression  
+library(glmnet)
+x = training_upsample[,-which(names(training_upsample) == "y")]
+y = training_upsample[,which(names(training_upsample) == "y")]
+x = model.matrix( ~., x)
+```
+
+```{r lasso1, include = FALSE, eval = FALSE}
+bank.lasso <- cv.glmnet(x = as.matrix(x), y = y, nfolds=10, type.measure="class", parallel=TRUE, family='binomial', alpha = 1, nlambda=100)
+print(bank.lasso$lambda.min)
+plot(bank.lasso)
+```
+
+```{r lasso2, include = FALSE, eval = FALSE}
+lasso.coefs <- as.data.frame(as.vector(coef(bank.lasso, s = bank.lasso$lambda.min)), 
+                             row.names = rownames(coef(bank.lasso)))
+print(lasso.coefs)
+
+names(lasso.coefs) <- 'coefficient'
+lasso_features <- rownames(lasso.coefs)[lasso.coefs != 0]
+print(lasso_features)
+lasso_features = c("age","job","marital","education","default","housing","contact","month","day_of_week","campaign","pdays","previous","poutcome","emp.var.rate","cons.price.idx","con.conf.idx", "euribor3m")
+
+lasso_training = training_upsample[,intersect(colnames(data), c(lasso_features, "y"))] 
+lasso_testing = testing[,intersect(colnames(data), c(lasso_features, "y"))] 
+
+model_lasso <- glm(y ~ ., family = binomial(link = "logit"),  data = lasso_training)
+#summary(model_lasso)
+
+predictions_lasso <- predict.glm(model_lasso, newdata=lasso_testing, type= "response")
+predictions_lasso[predictions_lasso > 0.5] <- 1
+predictions_lasso[predictions_lasso <= 0.5] <- 0
+
+table(predictions_lasso, lasso_testing$y)
+839/(839+539)
+
+#really bad. 
+#well guess the lasso made it slightly better...? Try ridge shrinking next:
+```
+
+
+```{r ridge1, include = FALSE, eval = FALSE}
+
+bank.ridge <- cv.glmnet(x= as.matrix(x), y = y, nfolds=10,type.measure="class", family='binomial', alpha = 0, nlambda=100)
+print(bank.ridge$lambda.min)
+plot(bank.ridge)
+```
+
+```{r ridge2, include = FALSE, eval = FALSE}
+ridge.coefs <- as.data.frame(as.vector(coef(bank.ridge, s = bank.ridge$lambda.min)), 
+                             row.names = rownames(coef(bank.ridge)))
+
+names(ridge.coefs) <- 'coefficient'
+ridge_features <- rownames(ridge.coefs)[ridge.coefs != 0]
+print(ridge_features)
+
+ridge_features = c("age","job","marital","education","default","housing","contact","month","day_of_week","campaign","pdays","previous","poutcome","emp.var.rate","cons.price.idx","con.conf.idx", "euribor3m","nr.employed")
+
+ridge_training = training_upsample[,intersect(colnames(data), c(ridge_features, "y"))] 
+ridge_testing = testing[,intersect(colnames(data), c(ridge_features, "y"))] 
+
+model_ridge <- glm(y ~ ., family = binomial(link = "logit"),  data = ridge_training)
+#summary(model_ridge)
+
+predictions_ridge <- predict.glm(model_ridge, newdata=ridge_testing, type= "response")
+predictions_ridge[predictions_ridge > 0.5] <- 1
+predictions_ridge[predictions_ridge <= 0.5] <- 0
+
+table(predictions_ridge, ridge_testing$y)
+tru_pos_ridge = 839/(839+539)
+tru_pos_ridge
+```
+
+
+```{r, include = FALSE, eval = FALSE}
+##just logistic regression
+model_std <- glm(y ~ ., family = binomial(link = "logit"),  data = training_upsample)
+summary(model_std)
 predictions <- predict.glm(model_std, newdata=testing, type= "response")
 predictions[predictions > 0.5] <- 1
 predictions[predictions <= 0.5] <- 0
-```
-
-```{r}
 1 - length(predictions[predictions == testing$y]) / length(predictions)
 table(predictions, testing$y)
+848/(848+530)
+
+logit_res = data.frame(y.act = ifelse(testing$y == 1, "yes", "no"), y.pred)
+
 ```
 
-- variable selection for logistic regression? not so much multilinearity so its fine?
-- low power of logistic regression model: 78% false negative (called 'no' when in fact 'yes')
-- imbalanced dataset (y == 'no' >> y =='yes')
+***
 
-## upsampling:   
-```{r}
-library("groupdata2")
-training_upsample = upsample(training, cat_col = 'y')
-testing_upsample = upsample(testing, cat_col = 'y')
-```
+### Team ID: Team 6
 
-```{r}
-model_std_up <- glm(y ~ ., family = binomial(link = "logit"),  data = training_upsample)
-predictions_up <- predict.glm(model_std_up, newdata=testing_upsample, type= "response")
-predictions_up[predictions_up > 0.5] <- 1
-predictions_up[predictions_up <= 0.5] <- 0
-1 - length(predictions_up[predictions_up == testing_upsample$y]) / length(predictions_up)
-table(predictions_up, testing_upsample$y)
-```
+#### NAME: Connor Rosenberg
+#### NAME: Rongkui Han
+#### NAME: Yuqing Yang
+#### NAME: Nassim Ali-Chaouche
+
+***
+
+## 1.0 Introduction     
+
+#### 1.1 Background     
+
+This study considers real data collected from a Portuguese retail bank, from May 2008 to June 2013, in a total of 41,188 phone contacts. This financial campaign focused on targeting through telemarketing phone calls to sell long-term deposits. Thus, the result is a binary unsuccessful or successful contact.
+
+The dataset is unbalanced, as only 4.640 (11.27%) records are related with successful outcomes. 
+
+
+
+
+task 2. Pick an appropriate data set to study, and justify your decision.     
+
+Many versions of the dataset was made available on the UCI Machine learning repository ()
+
+#### 1.2 Questions of Interest   
+
+## 2.0 Analysis Plan   
+
+#### 2.1 Population and study design
+
+#### 2.2 Descriptive Analysis   
+
+task 3: Explore this dataset and generate summary statistics (in forms of tables or plots) that you find crucial for your clients to know. 
+
+#### 2.3 Modeul buiding     
+##### 2.3.1 Logistic Regression
+
+task 4: Build a prediction model for whether a subject will sign on to a long-term deposit. You will use logistic regression in this task. Specifically, you will   
+a. write down a proper logistic regression model,   
+
+##### 2.3.2 Random Forest Classification
+##### 2.3.3 Neive Bayes Classification   
+
+#### 2.4 Model Diagnostics     
+
+## 3.0 Results    
+
+#### 3.1 Descriptive Analysis   
+
+#### 3.2 Model Fitting and Prediction Performance    
+##### 3.3.1 Logistic Regression     
+
+4b. fit the model,   
+4c. evaluate the performance of the fitted model,   
+
+##### 3.3.2 Random Forest Classification
+
+task 5: Build another prediction model using a method of your choice, and compare its performance to the logistic regression.  
+
+##### 3.3.3 Neive Bayes Classification  
+
+#### 3.3 Model Diagnostics     
+
+4d. and conduct model diagnostic and/or sensitivity analysis.     
+
+## 4.0 Discussion
+
+task 6: Explain the gap in the performances, if any, to your supervisor, who knows statistics quite well and only believes in data and mathematics.   
+
+**In any of these tasks, if a statistical method is employed, you need to clearly state the model and justify your choice.**   
+
+## Referece    
+S. Moro, P. Cortez and P. Rita. A Data-Driven Approach to Predict the Success of Bank Telemarketing. Decision Support Systems, Elsevier, 62:22-31, June 2014
+
+
+
 
