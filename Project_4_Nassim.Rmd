@@ -1,0 +1,308 @@
+---
+title: "STA 207 Project 4"
+author: "Nassim Ali-Chaouche"
+date: "2/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(MASS)
+library(car)
+library(randomForest)
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(pscl)
+library(ResourceSelection)
+library(survey)
+library(pROC)
+library(ROCR)
+library(ROSE)
+library(groupdata2)
+```
+
+
+```{r}
+bank.additional.full <- read.csv("~/Desktop/STA 207/Project 4/bank-additional/bank-additional-full.csv", sep=";")
+data = bank.additional.full
+```
+
+```{r}
+# Checking the type of each variable
+sapply(bank.additional.full, class)
+```
+
+
+```{r}
+#Recoding No as 0 and Yes as 1
+data['y'] = ifelse(data$y == 'no','0','1')
+data$y = as.factor(data$y)
+```
+
+```{r}
+# Removing some predictors from the dataset
+
+data = data[,-which(names(data) %in%  c("duration", "loan"))]
+```
+
+```{r}
+dim(data)
+```
+
+
+```{r}
+# Training/Testing Data Sets
+set.seed(1)
+selection = sample(1:nrow(data), size = ceiling(nrow(data)*0.7), replace = FALSE)
+training = data[selection,]
+testing = data[-selection,]
+```
+
+
+```{r}
+# Accuracy with logistic regression (original data set, no oversampling)
+logreg_datatrain<-glm(y ~ ., data = training, family = binomial)
+logreg_datatrain_testprob <- predict(logreg_datatrain, testing, type = "response")
+logreg_datatrain_testpred <- ifelse(logreg_datatrain_testprob > 0.5, "1", "0")
+logreg_data_cm <- table(logreg_datatrain_testpred, testing$y , dnn = c("Predicted","True"))
+sum(diag(logreg_data_cm))/sum(logreg_data_cm)
+```
+
+```{r}
+# Proportion of observations with y = "no" and "yes" in complete, training, and testing data sets
+prop.table(table(data$y))
+prop.table(table(training$y))
+prop.table(table(testing$y))
+```
+
+
+# Creating an upsampled training set with ROSE technique:
+
+```{r}
+#Number of observations in each level of y in original training set
+table(training$y)
+```
+
+```{r}
+n_0 <- 25570
+new_frac_0 <- 0.50
+new_n_total <- n_0/new_frac_0
+oversampling_result <- ovun.sample(y ~ ., data = training, method = "over", N = new_n_total, seed = 2020)
+
+
+oversampled_training <- oversampling_result$data
+```
+
+```{r}
+#Number of observations in each level of y in oversampled training set
+table(oversampled_training$y)
+```
+
+
+# Logistic Regression on Upsampled Training Data Set
+
+```{r}
+logreg_datatrain2<-glm(y ~ ., data = oversampled_training, family = binomial)
+logreg_datatrain_testprob2 <- predict(logreg_datatrain2, testing, type = "response")
+logreg_datatrain_testpred2 <- ifelse(logreg_datatrain_testprob2 > 0.5, "1", "0")
+logreg_data_cm2 <- table(logreg_datatrain_testpred2, testing$y , dnn = c("Predicted","True"))
+sum(diag(logreg_data_cm2))/sum(logreg_data_cm2)
+```
+
+
+
+
+# Random Forest with Oversampling on Training Data Set 
+
+
+
+```{r}
+model3 <- randomForest(y ~ ., data = oversampled_training, importance = TRUE)
+```
+
+```{r}
+model3
+```
+
+
+```{r}
+# Tuning to find optimal mtry value (default is the square root of the number of predictors)
+# ncol(oversampled_training) refers to the last column of the oversampled_training data set (last column is the response variable)
+
+bestmtry2 <- tuneRF(oversampled_training[,-ncol(oversampled_training)], oversampled_training[,ncol(oversampled_training)], ntreeTry = 500, improve = 1e-5, stepFactor = 1.5, doBest = TRUE)
+```
+
+```{r}
+print(bestmtry2)
+```
+
+```{r}
+model4 <- randomForest(y ~ ., data = oversampled_training, mtry = 13, importance = TRUE)
+```
+
+```{r}
+print(model4)
+```
+
+
+```{r}
+# Predicting on the Testing Set
+predtesting2 <- predict(model4, testing, type = "class")
+
+# Accuracy 
+mean(predtesting2 == testing$y)
+
+# Confusion Matrix
+table(predtesting2, testing$y)
+
+```
+
+
+```{r}
+# Checking for important variables
+importance(model4)
+```
+
+```{r}
+varImpPlot(model4)
+```
+
+```{r}
+# Bar Graph with Importance ranked by MeanDecreaseAccuracy
+# Reference: https://towardsdatascience.com/implement-random-forest-in-r-b00b69eb8501
+importance = importance(model4)
+varImportance = data.frame(Variables = row.names(importance),
+ Importance =round(importance[, "MeanDecreaseAccuracy"],2))
+rankImportance=varImportance%>%mutate(Rank=paste('#',dense_rank(desc(Importance))))
+ggplot(rankImportance,aes(x=reorder(Variables,Importance),
+ y=Importance,fill=Importance))+ 
+ geom_bar(stat='identity') + 
+ geom_text(aes(x = Variables, y = 0.5, label = Rank),
+ hjust=0, vjust=0.55, size = 4, colour = 'white') +
+ labs(x = 'Variables') +
+ coord_flip() + 
+ theme_classic()
+```
+
+```{r}
+# Bar Graph with Importance ranked by MeanDecreaseGini
+importance = importance(model4)
+varImportance = data.frame(Variables = row.names(importance),
+ Importance =round(importance[, "MeanDecreaseGini"],2))
+rankImportance=varImportance%>%mutate(Rank=paste('#',dense_rank(desc(Importance))))
+ggplot(rankImportance,aes(x=reorder(Variables,Importance),
+ y=Importance,fill=Importance))+ 
+ geom_bar(stat='identity') + 
+ geom_text(aes(x = Variables, y = 0.5, label = Rank),
+ hjust=0, vjust=0.55, size = 4, colour = 'white') +
+ labs(x = 'Variables') +
+ coord_flip() + 
+ theme_classic()
+```
+
+
+
+
+
+
+
+
+
+
+# Random Forest on Original Training Data Set
+
+```{r}
+model1 <- randomForest(y ~ ., data = training, importance = TRUE)
+```
+
+```{r}
+model1
+```
+
+
+```{r}
+# Tuning to find optimal mtry value (default is the square root of the number of predictors)
+# ncol(training) refers to the last column of the training data set (last column is the response variable)
+
+bestmtry <- tuneRF(training[,-ncol(training)], training[,ncol(training)], ntreeTry = 500, improve = 1e-5, stepFactor = 1.5, doBest = TRUE)
+```
+
+```{r}
+print(bestmtry)
+```
+
+
+```{r}
+model2 <- randomForest(y ~ ., data = training, mtry = 3, importance = TRUE)
+```
+
+```{r}
+print(model2)
+```
+
+
+```{r}
+# Predicting on the Testing Set
+predtesting <- predict(model2, testing, type = "class")
+
+# Accuracy 
+mean(predtesting == testing$y)
+
+# Confusion Matrix
+table(predtesting, testing$y)
+
+```
+
+
+```{r}
+# Checking for important variables
+importance(model2)
+```
+
+```{r}
+varImpPlot(model2)
+```
+
+```{r}
+# Bar Graph with Importance ranked by MeanDecreaseAccuracy
+# Reference: https://towardsdatascience.com/implement-random-forest-in-r-b00b69eb8501
+importance = importance(model2)
+varImportance = data.frame(Variables = row.names(importance),
+ Importance =round(importance[, "MeanDecreaseAccuracy"],2))
+rankImportance=varImportance%>%mutate(Rank=paste('#',dense_rank(desc(Importance))))
+ggplot(rankImportance,aes(x=reorder(Variables,Importance),
+ y=Importance,fill=Importance))+ 
+ geom_bar(stat='identity') + 
+ geom_text(aes(x = Variables, y = 0.5, label = Rank),
+ hjust=0, vjust=0.55, size = 4, colour = 'white') +
+ labs(x = 'Variables') +
+ coord_flip() + 
+ theme_classic()
+```
+
+
+```{r}
+# Bar Graph with Importance ranked by MeanDecreaseGini
+importance = importance(model2)
+varImportance = data.frame(Variables = row.names(importance),
+ Importance =round(importance[, "MeanDecreaseGini"],2))
+rankImportance=varImportance%>%mutate(Rank=paste('#',dense_rank(desc(Importance))))
+ggplot(rankImportance,aes(x=reorder(Variables,Importance),
+ y=Importance,fill=Importance))+ 
+ geom_bar(stat='identity') + 
+ geom_text(aes(x = Variables, y = 0.5, label = Rank),
+ hjust=0, vjust=0.55, size = 4, colour = 'white') +
+ labs(x = 'Variables') +
+ coord_flip() + 
+ theme_classic()
+```
+
+
+
+

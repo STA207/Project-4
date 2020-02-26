@@ -1,0 +1,216 @@
+---
+title: "Project 4 Connor"
+author: "Connor Rosenberg"
+date: "2/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(MASS)
+library(pROC)
+library(groupdata2)
+```
+
+```{r}
+setwd("C:\\Users\\rosen_000\\Desktop\\bank")
+bank = read.csv("bank-additional-full.csv", sep = ";" )
+```
+
+```{r}
+#Create Dummy Variables
+dummy.bank = data.frame(age = bank$age,
+                    job.admin = ifelse(bank$job == "admin",1,0),
+                    job.blue =ifelse(bank$job == "blue-collar",1,0),
+                    job.ent = ifelse(bank$job == "entrepreneur",1,0),
+                    job.house = ifelse(bank$job == "housemaid",1,0),
+                    job.mang =ifelse(bank$job == "managment",1,0),
+                    job.retired = ifelse(bank$job == "retired",1,0),
+                    job.self = ifelse(bank$job == "self-employed",1,0),
+                    job.service =ifelse(bank$job == "services",1,0),
+                    job.studnet = ifelse(bank$job == "student",1,0),
+                    job.tech = ifelse(bank$job == "technician",1,0),
+                    job.unemp =ifelse(bank$job == "unemployed",1,0),
+                    job.NA = ifelse(bank$job == "unkown",1,0),
+                    marital.div = ifelse(bank$marital == "divorced",1,0),
+                    marital.m = ifelse(bank$marital == "married",1,0),
+                    marital.s = ifelse(bank$marital == "sinlge",1,0),
+                    marital.NA = ifelse(bank$marital == "unkown",1,0),
+                    edu.4y = ifelse(bank$education == "basic.4y",1,0),
+                    edu.6y = ifelse(bank$education == "basic.6y",1,0),
+                    edu.9y = ifelse(bank$education == "basic.9y",1,0),
+                    edu.HS = ifelse(bank$education == "high.school",1,0),
+                    edu.illiterate = ifelse(bank$education == "illiterate",1,0),
+                    edu.prof = ifelse(bank$education == "professional.course",1,0),
+                    edu.U = ifelse(bank$education == "university.degree",1,0),
+                    edu.NA = ifelse(bank$education == "unkown",1,0),
+                    default.no = ifelse(bank$default == "no",1,0),
+                    default.yes = ifelse(bank$default == "yes",1,0),
+                    default.NA = ifelse(bank$default == "unkown",1,0),
+                    housing.no = ifelse(bank$housing == "no",1,0),
+                    housing.yes = ifelse(bank$housing == "yes",1,0),
+                    housing.NA = ifelse(bank$housing == "unkown",1,0),
+                    loan.no = ifelse(bank$loan == "no",1,0),
+                    loan.yes = ifelse(bank$loan == "yes",1,0),
+                    loan.NA = ifelse(bank$loan == "unkown",1,0),
+                    contact.cell = ifelse(bank$contact == "cellular",1,0),
+                    contact.tele = ifelse(bank$loan == "telephone",1,0),
+                    month.jan = ifelse(bank$month == "jan",1,0),
+                    month.feb = ifelse(bank$month == "feb",1,0),
+                    month.mar = ifelse(bank$month == "mar",1,0),
+                    month.apr = ifelse(bank$month == "apr",1,0),
+                    month.may = ifelse(bank$month == "may",1,0),
+                    month.jun = ifelse(bank$month == "jun",1,0),
+                    month.jul = ifelse(bank$month == "jul",1,0),
+                    month.aug = ifelse(bank$month == "aug",1,0),
+                    month.sep = ifelse(bank$month == "sep",1,0),
+                    month.oct = ifelse(bank$month == "oct",1,0),
+                    month.nov = ifelse(bank$month == "nov",1,0),
+                    month.dec = ifelse(bank$month == "dec",1,0),
+                    day.mon = ifelse(bank$day_of_week == "mon",1,0),
+                    day.tue = ifelse(bank$day_of_week == "tue",1,0),
+                    day.wed = ifelse(bank$day_of_week == "wed",1,0),
+                    day.thu = ifelse(bank$day_of_week == "thu",1,0),
+                    day.fri = ifelse(bank$day_of_week == "fri",1,0),
+                    campaign = bank$campaign,
+                    pdays = bank$pdays,
+                    previous = bank$previous,
+                    poutcome.f = ifelse(bank$poutcome == "failure",1,0),
+                    poutcome.s = ifelse(bank$poutcome == "success",1,0),
+                    poutcome.NA = ifelse(bank$poutcome == "nonexistent",1,0),
+                    emp.var.rate = bank$emp.var.rate,
+                    cons.price.idx = bank$cons.price.idx,
+                    cons.conf.idx = bank$cons.conf.idx,
+                    euribor3m = bank$euribor3m,
+                    nr.employed = bank$nr.employed,
+                    y = ifelse(bank$y == "yes",1,0)
+                    )
+
+```
+
+
+
+```{r}
+set.seed(1)
+selection = sample(1:nrow(dummy.bank), size = ceiling(nrow(dummy.bank)*0.7), replace = FALSE)
+training.d = dummy.bank[selection,]
+#dim(training) #28832    21
+testing.d = dummy.bank[-selection,]
+#dim(testing) #12356    21
+```
+
+```{r}
+training.d_upsample = upsample(training.d, cat_col = 'y')
+testing.d_upsample = upsample(testing.d, cat_col = 'y')
+```
+
+
+## Neural Net
+
+```{r}
+library(neuralnet)
+
+nn = neuralnet(y ~ age + , data = training.d_upsample, hidden = 1, act.fct = "logistic", linear.output = FALSE)
+
+```
+
+
+```{r}
+plot(nn)
+```
+
+
+```{r}
+predict = compute(nn, testing.d_upsample)
+prob = predict$net.result
+pred = ifelse(prob>.5,1,0)
+
+testing.d_upsample.pred = data.frame(testing.d_upsample$y,y.pred = pred)
+```
+
+
+```{r}
+table(testing_upsample.pred$y, testing_upsample.pred$y.pred) 
+#
+#           Pred:0       Pred:1
+#--------------------------------
+# Act:0    Turue Neg     False Positive
+#
+# Act:1    False Neg    True Positive
+
+```
+
+#Naieve Bayes
+
+```{r}
+bank.bayes = bank[,c(1,2,3,4,5,6,7,8,9,10,12,13,14,15,16,17,18,19,20,21)]
+```
+
+
+```{r}
+#install.packages("e1071")
+library(e1071)
+
+```
+
+
+```{r}
+set.seed(1)
+selection = sample(1:nrow(bank.bayes), size = ceiling(nrow(bank.bayes)*0.7), replace = FALSE)
+training = bank.bayes[selection,]
+#dim(training) #28832    21
+testing = bank.bayes[-selection,]
+#dim(testing) #12356    21
+```
+
+```{r}
+training_upsample = upsample(training, cat_col = 'y')
+```
+
+```{r}
+#model
+nB1 = naiveBayes(training_upsample$y ~ . , data = training_upsample)
+
+#Prediction
+bayes.predict = predict(nB1, testing)
+
+result = data.frame(y.act = testing$y,y.pred = bayes.predict)
+
+
+
+```
+
+```{r}
+table(result$y.act, result$y.pred) 
+#
+#               Pred:0               Pred:1
+#--------|-------------------|--------------------------
+# Act:0  |  True Neg (.80)  |   False Positive (.20)
+#--------|-------------------|---------------------------                           | 
+# Act:1  | False Neg (.36)   |    True Positive (.64)
+#------------------------------------------------------
+
+
+```
+
+
+```{r}
+#try different combo
+
+#model
+nB1 = naiveBayes(training_upsample$y ~ age + marital + job + education + default + housing + loan , data = training_upsample)
+
+#Prediction
+bayes.predict = predict(nB1, testing)
+
+result = data.frame(y.act = testing$y,y.pred = bayes.predict)
+
+a = data.frame(table(result$y.act, result$y.pred) )
+
+a[4,3]/(a[4,3]+a[2,3])
+```
+
