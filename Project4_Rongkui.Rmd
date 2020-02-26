@@ -119,8 +119,10 @@ predictions[predictions <= 0.5] <- 0
 table(predictions, testing$y)
 848/(848+530)
 
-logit_res = data.frame(y.act = ifelse(testing$y == 1, "yes", "no"), y.pred)
-
+logit_res = data.frame(y.act = ifelse(testing$y == 1, "yes", "no"), y.pred = ifelse(predictions > 0.5, "yes","no"), y.prob.no = 1-predictions, y.prob.yes = predictions)
+head(logit_res)
+rownames(logit_res) = seq(1, length(predictions), by = 1)
+write.csv(logit_res, file  = "/Users/rongkui/Desktop/Classes/STA207/Project-4/Logistic_Regression_Full_Result.csv")
 ```
 
 ***
@@ -138,18 +140,14 @@ logit_res = data.frame(y.act = ifelse(testing$y == 1, "yes", "no"), y.pred)
 
 #### 1.1 Background     
 
-This study considers real data collected from a Portuguese retail bank, from May 2008 to June 2013, in a total of 41,188 phone contacts. This financial campaign focused on targeting through telemarketing phone calls to sell long-term deposits. Thus, the result is a binary unsuccessful or successful contact.
+This study considers real data collected from a Portuguese retail bank, from May 2008 to November 2010, in a total of 41,188 phone contacts. This financial campaign focused on targeting through telemarketing phone calls to sell long-term deposits. The response variable of the dataset is a binary successful or unsuccessful contact. Marketing selling campaigns constitute a typical strategy to enhance business. Technology enables rethinking marketing by focusing on maximizing customer lifetime value through the evaluation of available information and customer metrics, thus allowing organizations to select the best set of clients, i.e., that are more likely to subscribe a product (S. Moro, P. Cortez and P. Rita., 2014). The goal of this study is predict if the client will subscribe a long-term deposit using demographic, campaign and economic information. 
 
-The dataset is unbalanced, as only 4.640 (11.27%) records are related with successful outcomes. 
-
-
-
-
-task 2. Pick an appropriate data set to study, and justify your decision.     
-
-Many versions of the dataset was made available on the UCI Machine learning repository ()
+Many versions of the dataset was made available on the ([UCI Machine learning repository](https://archive.ics.uci.edu/ml/datasets/Bank+Marketing#)). The one selected for this analysis contained all samples and the highest number of variables to maximize the information input for prediction purposes. The dataset is unbalanced, as only 4.640 (11.27%) records are related with successful outcomes. It must be stressed that for the purpose of this analysis, a false negative error (Type II error) in prediction incurs a much higher cost than a false positivce error (Type I error). If a customer unlikely to subscribe to the product is falsely identified as a potential customer (false positive), it only costs the bank caller a few minutes to make an unsuccessful phonecall; on the other hand, if a true potential customer is dismissed by the model as an unlikely target, the bank runs the risk of losing thousands of dollars of deposits the customer could put into the bank. Therefore, we make it a priority in our study to build the model that has the highest recall rate for true positive cases.               
 
 #### 1.2 Questions of Interest   
+
+- Can we predict if a client will subscribe a long-term deposit using demographic, campaign and economic information?     
+- What model, among (a) logistic regression, (b) random forest classification and (c) naive Bayes classification, perform the best in terms of capturing the highest number of true successful outcomes in its prediction?
 
 ## 2.0 Analysis Plan   
 
