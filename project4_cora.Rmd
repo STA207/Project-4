@@ -76,15 +76,14 @@ pred_train <- predict(rf, data = training)
 pred_test <- predict(rf, data = testing)
 
 hyper_grid <- expand.grid(
-  mtry = seq(2,10, by = 2),
-  num_tree = seq(300, 1000, by = 100)
-)
+  mtry = seq(2,18, by = 2)
+  #num_tree = seq(300, 1000, by = 100))
 
 for(i in 1:nrow(hyper_grid)){
   model <- ranger(
     formula = y~.,
     data = training_upsample,
-    num.trees = hyper_grid$num_tree[i],
+    #num.trees = hyper_grid$num_tree[i],
     mtry = hyper_grid$mtry[i],
     seed = 123
   )
