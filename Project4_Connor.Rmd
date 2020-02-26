@@ -292,7 +292,9 @@ We will present two Naive Bayes Classification models. The first model, *the ful
 
 
 # Results
-From the full model, which used all 20 predictors, our optimal model performed better on the validation dataset while only including 11 variates. Moreover, the optimal model does not use any of the previous campaign data. This allows us to make predictions, with the same level of certainty, about new and existing customers. Moreover, the optimal model ignores the effect due to time, which means our predictions are relevant regardless of the day of the week or month in the year.  **CONCLUSION SENTENCE**
+From the full model, which used all 20 predictors, our optimal model performed better on the validation dataset while only including 11 variates. **COMPARE A METRIC**. 
+
+The optimal model does not use any of the previous campaign data. This allows us to make predictions, with the same level of certainty, about new and existing customers. Moreover, the optimal model ignores the effect due to time, which means our predictions are relevant regardless of the day of the week or month in the year. In conclusion, the optimal model makes more accurate and relevant predictions about potential customers all while using fewer variables compared to the full model. 
 
 
 ##Full Model
