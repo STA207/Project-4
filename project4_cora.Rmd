@@ -5,7 +5,6 @@ output: html_document
 ```{r}
 library(dplyr)
 data <- read.csv("bank-additional-full.csv", sep = ";")
-head(data)
 ```
 
 ```{r}
@@ -71,9 +70,15 @@ testing_upsample = upsample(testing, cat_col = 'y')
 #train <- training(data_split)
 #test <- testing(data_split)
 
-rf <- ranger(y ~ ., data = training_upsample, write.forest = T, probability = TRUE)
+weights <- if_else(training$y == 'yes', 
+                   1/table(training$y)['yes'] * 0.5,
+                   1/table(training$y)['no'] * 0.5)
 
-rf2 <- ranger(y ~ ., data = training_upsample, importance = "permutation")
+rf <- ranger(y ~ ., data = training, case.weights = weights, write.forest = T)
+             
+rf_prob <- ranger(y ~ ., data = training, case.weights = weights, write.forest = T, probability = TRUE)
+
+rf2 <- ranger(y ~ ., data = training,  case.weights = weights, importance = "permutation")
 
 importances = importance(rf2) 
 
@@ -88,36 +93,37 @@ tibble(features = names(importances), importance = importances) %>%
 #pred_train <- predict(rf, data = training)
 #pred_test <- predict(rf, data = testing)$prediction
 pred_test <- predict(rf, data = testing)
+pred_test_prob <- predict(rf_prob, data = testing)
 
-result <- data.frame(true = testing$y, pred = predictions(pred_test),predict(rf, data = testing)$prediction)
+result <- data.frame(true = testing$y, pred = predictions(pred_test),predictions(pred_test_prob))
 write.csv(result,"random_forest.csv")
 
-
-hyper_grid <- expand.grid(
-  mtry = seq(2,18, by = 2)
-  #num_tree = seq(300, 1000, by = 100)
-  )
-
-for(i in 1:nrow(hyper_grid)){
-  model <- ranger(
-    formula = y~.,
-    data = training_upsample,
-    #num.trees = hyper_grid$num_tree[i],
-    mtry = hyper_grid$mtry[i],
-    seed = 123
-  )
-  
-  cf = rf$confusion.matrix
-  hyper_grid$sensitivity = cf[2,2]/sum(cf[2,])
-  hyper_grid$precision = cf[2,2]/sum(cf[,2])
-}
-
-#write.csv(hyper_grid, 'hyper_grid.csv')
-
-hyper_grid %>% 
-  mutate(f1_score = 2*precision*sensitivity/(precision+sensitivity)) %>%
-  arrange(sensitivity) %>% 
-  head(50)
+#
+#hyper_grid <- expand.grid(
+#  mtry = seq(2,18, by = 2)
+#  #num_tree = seq(300, 1000, by = 100)
+#  )
+#
+#for(i in 1:nrow(hyper_grid)){
+#  model <- ranger(
+#    formula = y~.,
+#    data = training_upsample,
+#    #num.trees = hyper_grid$num_tree[i],
+#    mtry = hyper_grid$mtry[i],
+#    seed = 123
+#  )
+#  
+#  cf = rf$confusion.matrix
+#  hyper_grid$sensitivity = cf[2,2]/sum(cf[2,])
+#  hyper_grid$precision = cf[2,2]/sum(cf[,2])
+#}
+#
+##write.csv(hyper_grid, 'hyper_grid.csv')
+#
+#hyper_grid %>% 
+#  mutate(f1_score = 2*precision*sensitivity/(precision+sensitivity)) %>%
+#  arrange(sensitivity) %>% 
+#  head(50)
   
   
 ```
@@ -136,6 +142,9 @@ f1 = 2*recall*precision/(precision+recall)
 ```
 
 ```{r}
-training_upsample
+library(precrec)
+
+rf_ = evalmod(scores = predictions(pred_test)[,2], labels = testing$y)
+autoplot(rf_)
 ```
 
