@@ -25,6 +25,9 @@ library(pROC)
 library(ROCR)
 library(ROSE)
 library(groupdata2)
+library(tidyr)
+library(broom)
+library(boot)
 ```
 
 
@@ -134,14 +137,42 @@ sum(diag(logreg_data_cm2))/sum(logreg_data_cm2)
 
 
 
+
+
+### Analysis Plan for Model Evaluation
+
+We will rank the importance of predictors in the logistic regression based on the absolute value of the t-statistics corresponding to each predictor. A Pseudo R^2 measure will be used to test the goodness-of-fit of the model. The recall of the model will be assessed, and the area under of the ROC Curve will be used to examine the predictive ability of the model. 
+
+### Analysis Plan for Model Diagnostics
+
+A scatterplot between each continuous predictor variable and the log odds of the response variable will be used to examine the assumption of the logistic regression model that the predictors are linearly related to the log odds of the response variable. VIF values will be used to examine the assumption that there is low multicollinearity among the predictors. Influential observations will also be discussed.
+
+
+
+
+
+
 ### Final Logistic Regression Model Evaluation
 
-Model:
 
 ```{r, include = FALSE}
+# Model:
 model_std <- glm(y ~ ., family = binomial(link = "logit"),  data = training_upsample)
 
 ```
+
+# Important Variables
+
+```{r, include = FALSE}
+model_std2 <- train(y ~ ., data = training_upsample, method = "glm", family = binomial(link = "logit"))
+```
+
+```{r, include = FALSE}
+varImp(model_std2)
+```
+
+Some of the most important variables in the regression are "emp.var.rate", "contact:telephone", and "cons.price.idx," based on the absolute value of the t-statistic corresponding to each predictor. 
+
 
 
 # Pseudo R^2:
@@ -152,12 +183,12 @@ pR2(model_std)
 # (Source: http://cowles.yale.edu/sites/default/files/files/pub/d04/d0474.pdf, page 35 for interpretating of the McFadden score)
 ```
 
-The McFadden Score, which is a measure of goodness-of-fit/predictive ability, is 0.23. According to McFadden (1977), values of 0.2 and 0.4 represent an excellent fit. 
+The McFadden Score, which is a measure of goodness-of-fit/reduction in deviance, is 0.23. According to McFadden (1977), values of 0.2 to 0.4 represent an excellent fit. 
 
 
-# Confusion Matrix
+# Recall
 
-```{r, echo = FALSE}
+```{r, include = FALSE}
 logreg_datatrain_testprob3 <- predict(model_std, testing, type = "response")
 logreg_datatrain_testpred3 <- ifelse(logreg_datatrain_testprob3 > 0.5, "1", "0")
 logreg_data_cm3 <- table(logreg_datatrain_testpred3, testing$y , dnn = c("Predicted","True"))
@@ -165,10 +196,13 @@ logreg_data_cm3
 ```
 
 ```{r, include = FALSE}
-# True Positive Rate
+# Recall/ True Positive Rate
 
 838/(838+540)
 ```
+
+The recall, or true positive rate, of the logisitic model is 0.61. 61% of the observations in the "Yes" category were correctly classified.
+
 
 
 # ROC Curve
@@ -183,18 +217,66 @@ plot(perf)
 
 ```{r, include = FALSE}
 # AUC
+# Reference: https://www.r-bloggers.com/evaluating-logistic-regression-models/
 
 auc <- performance(pred, measure = "auc")
 auc <- auc@y.values[[1]]
 auc
 ```
 
-The AUC value is approximately 0.79. Values above 0.80 indicate that the model does a good job in differentiating between the "no" and "yes" categories of the response variable, and thus our model has good fit according to the AUC measure. 
+The AUC value is approximately 0.79. Values above 0.80 indicate that a model does a good job in differentiating between the "no" and "yes" categories of the response variable. The AUC value of 0.79 is very close to 0.80, and thus our model has good predictive ability according to the AUC measure. 
 
 
 
 
 ### Final Logistic Model Diagnostics
+
+```{r, include = FALSE}
+probabilities <- predict(model_std, type = "response")
+logit = log(probabilities)/(1-probabilities)
+
+```
+
+```{r, include = FALSE}
+plot(logit, training_upsample$age)
+plot(logit, training_upsample$campaign)
+plot(logit, training_upsample$cons.conf.idx)
+plot(logit, training_upsample$cons.price.idx)
+plot(logit, training_upsample$emp.var.rate)
+plot(logit, training_upsample$euribor3m)
+plot(logit, training_upsample$nr.employed)
+plot(logit, training_upsample$pdays)
+plot(logit, training_upsample$previous)
+```
+
+
+```{r, echo = FALSE, fig.align="center"}
+plot(model_std, which=c(4))
+```
+
+Figure # Visual Diagnostics of Logistic Regression Assumptions. (a) Cook's Distance Plot, showing the Cook's distance value for every observation.
+
+
+# Linearity between the continuous predictor variables and the log odds of the response variable
+
+After creating scatterplots between the log odds of the response variable and the continuous predictor variables (9 in total), each of the predictor variables displayed a non-linear relationship with the log odds of the response variable. Under time constraints we did not have the oppurtunity to try transformations of the variables.
+
+# Multicollinearity
+
+```{r, include = FALSE}
+vif(model_std)
+```
+
+Most variables have VIF values of less than 10. A few variables (emp.var.rate, euribor3m, nr.employed) have VIF values very slightly above 10. Overall, multicollinearity does not pose a big issue in the analysis.
+
+
+# Influential observations
+
+In Figure #(a), the Cook's distance for every observation is extremely small, with the largest Cook's distance value being less than 0.003. Thus, there are no highly influential observations.
+
+
+
+
 
 
 
