@@ -24,11 +24,12 @@ import scikitplot as skplt
 nb_full = pd.read_csv('G:/sta207/project4/Project-4/Naive_Bayes_Full_Result.csv')
 nb_opt = pd.read_csv('G:/sta207/project4/Project-4/Naive_Bayes_Optimal_Result.csv')
 logit = pd.read_csv('G:/sta207/project4/Project-4/Logistic_Regression_Full_Result.csv')
+rdf = pd.read_csv('G:/sta207/project4/Project-4/random_forest.csv')
 
 nb_full[['y.act', 'y.pred']] = nb_full[['y.act', 'y.pred']].eq('yes').mul(1)
 nb_opt[['y.act', 'y.pred']] = nb_opt[['y.act', 'y.pred']].eq('yes').mul(1)
 logit[['y.act', 'y.pred']] = logit[['y.act', 'y.pred']].eq('yes').mul(1)
-
+rdf[['y.act', 'y.pred']] = rdf[['y.act', 'y.pred']].eq('yes').mul(1)
 ```
 
 ```{python}
@@ -43,10 +44,15 @@ print(classification_report(nb_opt['y.act'], nb_opt['y.pred']))
 print(classification_report(logit['y.act'], logit['y.pred']))
 ```
 
+```{python}
+print(classification_report(rdf['y.act'], rdf['y.pred']))
+```
+
 ```{r}
 nb_full = read.csv('Naive_Bayes_Full_Result.csv')
 nb_opt = read.csv('Naive_Bayes_Optimal_Result.csv')
 logit = read.csv('Logistic_Regression_Full_Result.csv')
+rdf = read.csv('random_forest.csv')
 ```
 
 ```{r}
@@ -56,16 +62,18 @@ library(ggplot2)
 s1 <- nb_full$y.prob.yes
 s2 <- nb_opt$y.prob.yes
 s3 <- logit$y.prob.yes
+s4 <- rdf$yes
 
-scores <- join_scores(s1, s2, s3)
+scores <- join_scores(s1, s2, s3, s4)
 
 l1 <- nb_full$y.act
 l2 <- nb_opt$y.act
 l3 <- logit$y.act
+l4 <- rdf$y.act
 
-labels <- join_labels(l1, l2, l3)
+labels <- join_labels(l1, l2, l3, l4)
 
-msmdat <- mmdata(scores, labels, modnames = c("Naive Bayes Full", "Naive Bayes Optimal", "Logistic Regression"))
+msmdat <- mmdata(scores, labels, modnames = c("Naive Bayes Full", "Naive Bayes Optimal", "Logistic Regression", "Random Forest"))
 
 mscurves <- evalmod(msmdat)
 
