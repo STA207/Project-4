@@ -71,9 +71,27 @@ testing_upsample = upsample(testing, cat_col = 'y')
 #train <- training(data_split)
 #test <- testing(data_split)
 
-rf <- ranger(y ~ ., data = training_upsample, write.forest = T)
-pred_train <- predict(rf, data = training)
+rf <- ranger(y ~ ., data = training_upsample, write.forest = T, probability = TRUE)
+
+rf2 <- ranger(y ~ ., data = training_upsample, importance = "permutation")
+
+importances = importance(rf2) 
+
+tibble(features = names(importances), importance = importances) %>% 
+  arrange(desc(importance)) %>% 
+  head(7) %>% 
+  ggplot(aes(features, importance)) +
+  geom_bar(stat = 'identity') 
+```
+
+```{r}
+#pred_train <- predict(rf, data = training)
+#pred_test <- predict(rf, data = testing)$prediction
 pred_test <- predict(rf, data = testing)
+
+result <- data.frame(true = testing$y, pred = predictions(pred_test),predict(rf, data = testing)$prediction)
+write.csv(result,"random_forest.csv")
+
 
 hyper_grid <- expand.grid(
   mtry = seq(2,18, by = 2)
@@ -115,5 +133,9 @@ recall = cm[2,2]/sum(cm[2,])
 precision = cm[2,2]/sum(cm[,2])
 f1 = 2*recall*precision/(precision+recall)
 
+```
+
+```{r}
+training_upsample
 ```
 
