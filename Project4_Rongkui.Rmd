@@ -8,6 +8,7 @@ output: html_document
 ```{r loaddata, include = FALSE, eval = FALSE}
 library(MASS)
 data = read.delim("/Users/rongkui/Desktop/Classes/STA207/Project-4/bank-additional-full.csv", sep = ";")
+bank = read.delim("/Users/rongkui/Desktop/Classes/STA207/Project-4/bank-additional-full.csv", sep = ";") #For bayes model
 head(data)
 dim(data)
 data = data[,-which(names(data) %in%  c("duration", "loan"))]
@@ -125,6 +126,50 @@ rownames(logit_res) = seq(1, length(predictions), by = 1)
 write.csv(logit_res, file  = "/Users/rongkui/Desktop/Classes/STA207/Project-4/Logistic_Regression_Full_Result.csv")
 ```
 
+
+```{r, include= FALSE}
+#Bayes model
+
+#install.packages("e1071")
+library(e1071)
+
+bank.bayes = bank[,c(1,2,3,4,5,6,7,8,9,10,12,13,14,15,16,17,18,19,20,21)]
+
+set.seed(1)
+selection = sample(1:nrow(bank.bayes), size = ceiling(nrow(bank.bayes)*0.7), replace = FALSE)
+training = bank.bayes[selection,]
+#dim(training) #28832    21
+testing = bank.bayes[-selection,]
+#dim(testing) #12356    21
+
+#######################################
+#Full Model
+nB_full = naiveBayes(training_upsample$y ~ . , data = training_upsample)
+
+###Prediction
+bayes.predict = predict(nB_full, testing)
+
+#### Result
+result.full = data.frame(y.act = testing$y,y.pred = bayes.predict)
+table(result.full$y.act, result.full$y.pred) 
+########################################
+
+#######################################
+#Optimal Model
+nB_opt = naiveBayes(training_upsample$y ~ age + marital + job + education + default + housing + loan  + emp.var.rate + cons.price.idx + euribor3m +  nr.employed , data = training_upsample)
+
+#### Prediction
+bayes.predict = predict(nB_opt, testing)
+
+#### Result
+result.opt = data.frame(y.act = testing$y,y.pred = bayes.predict)
+table(result.opt$y.act, result.opt$y.pred)
+########################################
+
+
+```
+
+
 ***
 
 ### Team ID: Team 6
@@ -201,7 +246,10 @@ task 6: Explain the gap in the performances, if any, to your supervisor, who kno
 
 **In any of these tasks, if a statistical method is employed, you need to clearly state the model and justify your choice.**   
 
-## Referece    
+## Referece   
+
+Rish, I. (2001). An Empirical Study of the Naïve Bayes Classifier. IJCAI, 41–46.
+
 S. Moro, P. Cortez and P. Rita. A Data-Driven Approach to Predict the Success of Bank Telemarketing. Decision Support Systems, Elsevier, 62:22-31, June 2014
 
 
