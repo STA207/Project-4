@@ -164,7 +164,14 @@ task 4: Build a prediction model for whether a subject will sign on to a long-te
 a. write down a proper logistic regression model,   
 
 ##### 2.3.2 Random Forest Classification
-##### 2.3.3 Neive Bayes Classification   
+
+##### 2.3.3 Neive Bayes Classification 
+
+Another model to consider is the Naive Bayes Classifier. This model, based on Bayes’ theorem, provides a way to calculate the posterior probability of each observation. From these posterior probabilities, we can predict whether a potential customer will sign up for a long-term deposit. 
+
+The Naive Bayes Classifier is a very versatile model as it can both handle categorical and continuous variates. The model assumes *class conditional independence* between our predictors on the response (Rish, 2001). That is, there are no interactions between predictor variables and the effect of each predictor on the response class is independent of all other predictors. Even though this assumption is rarely certified in practice, the Naive Bayes Classifier has shown to be an effective classifier regardless if the conditional independence assumption truly holds in the data (Rish, 2001). Since we are only concerned with the predictive capability of our model, we can move forward with the Naive Bayes Classifier even though the model assumption is not strictly certified.
+
+We will present two Naive Bayes Classification models. The first model, **the full model**, will be fit on the full list of predictors from the data set. The second model, **the optimal model**, will include only the variates which returned the highest proportion of true-positive outcomes when tested on the validation dataset.
 
 #### 2.4 Model Diagnostics     
 
