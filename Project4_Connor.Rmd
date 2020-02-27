@@ -279,16 +279,15 @@ table(result.opt$y.act, result.opt$y.pred)
 ########################################
 ```
 
-
 #Analysis Plan
 
 ##Naive Bayes Classifier
 
 Another model to consider is the Naive Bayes Classifier. This model, based on Bayes’ theorem, provides a way to calculate the posterior probability of each observation. From these posterior probabilities, we can predict whether a potential customer will sign up for a long-term deposit. 
 
-The Naive Bayes Classifier is a very versatile model as it can both handle categorical and continuous variates. The model assumes *class conditional independence* between our predictors on the response. That is, there are no interactions between predictor variables and the effect of each predictor on the response class is independent of all other predictors. **SHOW THAT WE CERTIFY THIS ASSUMPTION**.
+The Naive Bayes Classifier is a very versatile model as it can both handle categorical and continuous variates. The model assumes *class conditional independence* between our predictors on the response (Rish, 2001). That is, there are no interactions between predictor variables and the effect of each predictor on the response class is independent of all other predictors. Even though this assumption is rarely certified in practice, the Naive Bayes Classifier has shown to be an effective classifier regardless if the conditional independence assumption truly holds in the data (Rish, 2001). Since we are only concerned with the predictive capability of our model, we can move forward with the Naive Bayes Classifier even though the model assumption is not strictly certified.
 
-We will present two Naive Bayes Classification models. The first model, *the full model*, will be fit on the full list of predictors from the data set. The second model, *the optimal model*, will include only the variates which returned the highest proportion of true-positive outcomes when tested on the validation dataset.
+We will present two Naive Bayes Classification models. The first model, **the full model**, will be fit on the full list of predictors from the data set. The second model, **the optimal model**, will include only the variates which returned the highest proportion of true-positive outcomes when tested on the validation dataset.
 
 
 # Results
@@ -301,3 +300,7 @@ The optimal model does not use any of the previous campaign data. This allows us
 
 
 ## Optimal Model
+
+
+# References
+Rish, I. (2001). An Empirical Study of the Naïve Bayes Classifier. IJCAI, 41–46.
