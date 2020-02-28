@@ -467,7 +467,7 @@ The optimal Bayes model achieved a recall of 0.7025, which improved performance 
 
 ## 4.0 Discussion    
 
-The optimal Naive Bayes model outperformed all other models regarding recall of positive cases. Positive cases were the point of focus of this study because of the high cost of false negative errors and the low impact of false positive errors. 
+The optimal Naive Bayes model outperformed all other models regarding recall of positive cases (Table \@ref(tab:compare)). Positive cases were the point of focus of this study because of the high cost of false negative errors and the low impact of false positive errors. Moving forward, implementing this model in our business stucture will allow our marketing employees to make educated decisions about the clients they target. After its deployment, we expect to see an increase in enrollment. Furthermore, by reducing the number of calls to unlikely customers, we will increase our overall customer satisfaction and maintain a more positive relationship with our potemntial customers for future products.  
 
 ```{r, include = FALSE}
 nb_full = read.csv('Naive_Bayes_Full_Result.csv')
@@ -516,6 +516,7 @@ curve = autoplot(mscurves)
 |                   |yes|  0.28 |0.65  |  
 |Naive Bayes Optimal|no|   0.95 |0.72  |
 |                   |yes|  0.24 |0.70  |
+
 
 
 ```{r curve, fig.cap = "ROC and Precision-Sensitivity curves for all four models: Logistic Regression, Random Forest, Naive Bayes Full, and Naive Bayes Optimal"}
