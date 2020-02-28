@@ -1,21 +1,18 @@
 ---
-output: html_document
+output: pdf_document
 ---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
 
 ```{r}
 library(dplyr)
+library(ggplot2)
 data <- read.csv("bank-additional-full.csv", sep = ";")
-```
-
-```{r}
 data2 <- data %>% 
   select(-duration)
-```
-
-```{r}
-summary(training$y)
-
-wt = if_else(training$y == 'no', 1, 10)
 ```
 
 ```{r}
@@ -29,36 +26,29 @@ dim(testing) #12356    21
 ```
 
 ```{r}
-fit = glm(y~., family = binomial, data = training_upsample)
-#fit = glm(y~., family = binomial, data = training)
-summary(fit)
-library(car)
-Anova(fit)
-```
-
-```{r}
-predict_y <- if_else(predict(fit, testing, type = 'response')>=0.5, 1, 0)
-test_y <- if_else(testing$y == 'yes', 1, 0)
-#summary(factor(predcit_y))
-cm = table(test_y, predict_y)
-recall = cm[2,2]/sum(cm[2,])
-precision = cm[2,2]/sum(cm[,2])
-f1 = 2*recall*precision/(precision+recall)
-
-
-```
-
-```{r}
-library(pROC)
-rocplot <- roc(test_y ~ predict(fit, testing, type = 'response'), legacy.axes=TRUE)
-plot(rocplot)
-auc(rocplot)
+#fit = glm(y~., family = binomial, data = training_upsample)
+##fit = glm(y~., family = binomial, data = training)
+#summary(fit)
+#library(car)
+#Anova(fit)
+#
+#predict_y <- if_else(predict(fit, testing, type = 'response')>=0.5, 1, 0)
+#test_y <- if_else(testing$y == 'yes', 1, 0)
+##summary(factor(predcit_y))
+#cm = table(test_y, predict_y)
+#recall = cm[2,2]/sum(cm[2,])
+#precision = cm[2,2]/sum(cm[,2])
+#f1 = 2*recall*precision/(precision+recall)
+#
+#library(pROC)
+#rocplot <- roc(test_y ~ predict(fit, testing, type = 'response'), legacy.axes=TRUE)
+#plot(rocplot)
+#auc(rocplot)
 ```
 
 ```{r}
 library(ranger)
 library(rsample)
-
 library("groupdata2")
 training_upsample = upsample(training, cat_col = 'y')
 testing_upsample = upsample(testing, cat_col = 'y')
@@ -82,11 +72,17 @@ rf2 <- ranger(y ~ ., data = training,  case.weights = weights, importance = "per
 
 importances = importance(rf2) 
 
-tibble(features = names(importances), importance = importances) %>% 
-  arrange(desc(importance)) %>% 
-  head(7) %>% 
-  ggplot(aes(features, importance)) +
-  geom_bar(stat = 'identity') 
+importance_plot = tibble(features = names(importances), importance = importances) %>% 
+  mutate(rank = rank(desc(importance))) %>% 
+  ggplot(aes(x = reorder(features, importance),y = importance)) +
+    geom_bar(stat='identity') + 
+   # geom_text(aes(x = features, y = 0.5, label = rank), hjust=0, vjust=0.55, size = 4, colour = 'white') +
+    labs(x ='Variables', y = "Scale Permutation Importance") +
+    coord_flip() + 
+    theme_classic()
+
+
+
 ```
 
 ```{r}
@@ -95,8 +91,8 @@ tibble(features = names(importances), importance = importances) %>%
 pred_test <- predict(rf, data = testing)
 pred_test_prob <- predict(rf_prob, data = testing)
 
-result <- data.frame(true = testing$y, pred = predictions(pred_test),predictions(pred_test_prob))
-write.csv(result,"random_forest.csv")
+result <- data.frame(y.act = testing$y, y.pred = predictions(pred_test),predictions(pred_test_prob))
+#write.csv(result,"random_forest.csv")
 
 #
 #hyper_grid <- expand.grid(
@@ -129,22 +125,22 @@ write.csv(result,"random_forest.csv")
 ```
 
 ```{r}
-#rf$confusion.matrix
-table(training$y, predictions(pred_train))
+cm = table(predictions(pred_test), testing$y)
 ```
 
-```{r}
-cm = table(testing$y, predictions(pred_test))
-recall = cm[2,2]/sum(cm[2,])
-precision = cm[2,2]/sum(cm[,2])
-f1 = 2*recall*precision/(precision+recall)
+# Random Forest Classification
 
-```
+We also use the random forest to build the prediction model. Random forest is a tree-based ensemble learning method. It uses a modification of the bagging technique, which could improve models in terms of stability and classification accuracy, reduces variance and helps to avoid overfitting. There are two sources of randomness in the random forest method. On the one hand, each tree is grown based on a bootstrap resampled data set. On the other hand, each time a split is to be performed, the search for the split variable is limited to a random subset of variables.
 
-```{r}
-library(precrec)
+Since the outcome of the data set is very imbalanced, weights for the sampling of training observations were assigned proportionally to the inverse of its frequency. Observations with larger weights will be selected with a higher probability in the bootstrap samples for the trees.
 
-rf_ = evalmod(scores = predictions(pred_test)[,2], labels = testing$y)
-autoplot(rf_)
-```
+# Results
 
+All the variables except ‘duration’ were included when building the model.  The confusion matrix for the predictions of the test data set was shown in Table \@ref(tab:rfcm).
+
+: \label{tab:rfcm} Confusion Matrix for Random Forest 
+
+|   |Predicted No | Predicted yes|
+----|-------------|--------------|
+Actual No|  10061|   654|
+Actual Yes|   917|   724|
