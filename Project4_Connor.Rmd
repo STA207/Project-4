@@ -279,6 +279,93 @@ table(result.opt$y.act, result.opt$y.pred)
 ########################################
 ```
 
+
+#Exploratoy Analysis
+```{r}
+#Show the imabllence
+imbal = table(bank$y) / nrow(bank)
+
+#boxplot of age
+boxplot(bank$age ~ bank$y)
+
+#Prop of y/n from job
+a = (table(bank$job,bank$y))
+job.prop = round(prop.table(a,1)*100,2)
+job.prop = as.data.frame(job.prop)
+
+job.chart = ggplot(job.prop, aes(fill=Var2, y=Freq, x=Var1)) + 
+    geom_bar(position="stack", stat="identity") +
+  guides(fill = guide_legend(title = "Sign Up?"))+
+  theme(text = element_text(size = 14),axis.text.x = element_text(angle=40, hjust=1)) + 
+  xlab("Occupation") +
+  ylab("Proportion")
+  
+
+
+
+#Prop of y/n from marital
+a = (table(bank$marital,bank$y))
+marital.prop = round(prop.table(a,1)*100,2)
+marital.prop = as.data.frame(marital.prop)
+
+married.chart = ggplot(marital.prop, aes(fill=Var2, y=Freq, x=Var1)) + 
+    geom_bar(position="stack", stat="identity") +
+  guides(fill = guide_legend(title = "Sign Up?"))+
+  theme(text = element_text(size = 14),axis.text.x = element_text(angle=40, hjust=1)) + 
+  xlab("Marital Status") +
+  ylab("Proportion")
+
+#Prop of y/n from Month
+a = (table(bank$month,bank$y))
+month.prop = round(prop.table(a,1)*100,2)
+month.prop = as.data.frame(month.prop)
+
+month.chart = ggplot(month.prop, aes(fill=Var2, y=Freq, x=Var1)) + 
+    geom_bar(position="stack", stat="identity") +
+  guides(fill = guide_legend(title = "Sign Up?"))+
+  theme(text = element_text(size = 14),axis.text.x = element_text(angle=40, hjust=1)) + 
+  xlab("Month") +
+  ylab("Proportion")
+
+
+#Prop of y/n from education
+a = (table(bank$education,bank$y))
+education.prop = round(prop.table(a,1)*100,2)
+education.prop = as.data.frame(education.prop)
+
+education.chart = ggplot(education.prop, aes(fill=Var2, y=Freq, x=Var1)) + 
+    geom_bar(position="stack", stat="identity") +
+  guides(fill = guide_legend(title = "Sign Up?"))+
+  theme(text = element_text(size = 14),axis.text.x = element_text(angle=40, hjust=1)) + 
+  xlab("Month") +
+  ylab("Proportion")
+
+
+
+#Prop of y/n from day
+a = (table(bank$day_of_week,bank$y))
+day.prop = round(prop.table(a,1)*100,2)
+day.prop = as.data.frame(day.prop)
+
+day.chart = ggplot(day.prop, aes(fill=Var2, y=Freq, x=Var1)) + 
+    geom_bar(position="stack", stat="identity") +
+  guides(fill = guide_legend(title = "Sign Up?"))+
+  theme(text = element_text(size = 14),axis.text.x = element_text(angle=40, hjust=1)) + 
+  xlab("Day of Week") +
+  ylab("Proportion")
+
+
+```
+
+```{r}
+education.chart
+month.chart
+job.chart
+married.chart
+day.chart
+```
+
+
 #Analysis Plan
 
 ##Naive Bayes Classifier
