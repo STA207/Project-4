@@ -1,5 +1,7 @@
 ---
-output: pdf_document
+output:
+  bookdown::pdf_document2:
+    toc: no
 ---
 
 
@@ -81,19 +83,32 @@ importance_plot = tibble(features = names(importances), importance = importances
     coord_flip() + 
     theme_classic()
 
+pred_test <- predict(rf, data = testing)
+pred_test_prob <- predict(rf_prob, data = testing)
+cm = table(predictions(pred_test), testing$y)
+
+training_r <- training %>% 
+  select(-c(campaign, marital, default, pdays, contact))
+
+rf_r <- ranger(y ~ ., data = training_r, case.weights = weights, write.forest = T)
+
+rf_prob_r <- ranger(y ~ ., data = training_r, case.weights = weights, write.forest = T, probability = TRUE)
+
+pred_test_r <- predict(rf_r, data = testing)
+pred_test_prob_r <- predict(rf_prob_r, data = testing)
+
+cm_r = table(predictions(pred_test_r), testing$y)
+
+result <- data.frame(y.act = testing$y, y.pred = predictions(pred_test),predictions(pred_test_prob))
+#write.csv(result,"random_forest.csv")
+
+result <- data.frame(y.act = testing$y, y.pred = predictions(pred_test_r),predictions(pred_test_prob_r))
+#write.csv(result,"random_forest_r.csv")
 
 
 ```
 
 ```{r}
-#pred_train <- predict(rf, data = training)
-#pred_test <- predict(rf, data = testing)$prediction
-pred_test <- predict(rf, data = testing)
-pred_test_prob <- predict(rf_prob, data = testing)
-
-result <- data.frame(y.act = testing$y, y.pred = predictions(pred_test),predictions(pred_test_prob))
-#write.csv(result,"random_forest.csv")
-
 #
 #hyper_grid <- expand.grid(
 #  mtry = seq(2,18, by = 2)
@@ -124,10 +139,6 @@ result <- data.frame(y.act = testing$y, y.pred = predictions(pred_test),predicti
   
 ```
 
-```{r}
-cm = table(predictions(pred_test), testing$y)
-```
-
 # Random Forest Classification
 
 We also use the random forest to build the prediction model. Random forest is a tree-based ensemble learning method. It uses a modification of the bagging technique, which could improve models in terms of stability and classification accuracy, reduces variance and helps to avoid overfitting. There are two sources of randomness in the random forest method. On the one hand, each tree is grown based on a bootstrap resampled data set. On the other hand, each time a split is to be performed, the search for the split variable is limited to a random subset of variables.
@@ -136,11 +147,20 @@ Since the outcome of the data set is very imbalanced, weights for the sampling o
 
 # Results
 
-All the variables except ‘duration’ were included when building the model.  The confusion matrix for the predictions of the test data set was shown in Table \@ref(tab:rfcm).
+All the variables except ‘duration’ were included when building the model. The scale permutation importance by standard error for each variable were shown in Figure \@ref(fig: ipt). It can be seen that variables campaign, marital, default, pdays, and contact have negative permutation importance. So these variables were dropped to fit a new random forest model.
+
+```{r ipt, fig.cap='Permutaion Feature importances in the Random Forest Model'}
+importance_plot
+```
+
+
+Since the new model has a higher sensitivity, we choose the new model as the final version for the random forest method. The confusion matrix for the new model for the test data set was shown in Table \@ref(tab:rfcm).
 
 : \label{tab:rfcm} Confusion Matrix for Random Forest 
 
 |   |Predicted No | Predicted yes|
 ----|-------------|--------------|
-Actual No|  10061|   654|
-Actual Yes|   917|   724|
+Actual No|  9932|   1046|
+Actual Yes|   598|   780|
+
+# 
