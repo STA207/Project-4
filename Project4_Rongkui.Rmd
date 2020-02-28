@@ -5,7 +5,7 @@ date: "2/20/2020"
 output: html_document
 ---
 
-```{r loaddata, include = FALSE, eval = FALSE}
+```{r loaddata, include = FALSE}
 library(MASS)
 data = read.delim("/Users/rongkui/Desktop/Classes/STA207/Project-4/bank-additional-full.csv", sep = ";")
 bank = read.delim("/Users/rongkui/Desktop/Classes/STA207/Project-4/bank-additional-full.csv", sep = ";") #For bayes model
@@ -15,7 +15,7 @@ data = data[,-which(names(data) %in%  c("duration", "loan"))]
 data$y <- ifelse(data$y== "yes", 1, 0)
 ```
 
-```{r traingtest, include = FALSE, eval = FALSE}
+```{r traingtest, include = FALSE}
 set.seed(1)
 selection = sample(1:nrow(data), size = ceiling(nrow(data)*0.7), replace = FALSE)
 
@@ -25,16 +25,16 @@ dim(training) #28832    21
 testing = data[-selection,]
 dim(testing) #12356    21
 ```
-## upsampling:   
 
-```{r upsample, include = FALSE, eval = FALSE}
+```{r upsample, include = FALSE}
 library("groupdata2")
 training_upsample = upsample(training, cat_col = 'y')
+dim(training_upsample)
 #testing_upsample = upsample(testing, cat_col = 'y')
 ```
 
 
-```{r xy, include = FALSE, eval = FALSE}
+```{r xy, include = FALSE}
 ## variable selection using LASSO regression  
 library(glmnet)
 x = training_upsample[,-which(names(training_upsample) == "y")]
@@ -42,13 +42,13 @@ y = training_upsample[,which(names(training_upsample) == "y")]
 x = model.matrix( ~., x)
 ```
 
-```{r lasso1, include = FALSE, eval = FALSE}
+```{r lasso1, include = FALSE}
 bank.lasso <- cv.glmnet(x = as.matrix(x), y = y, nfolds=10, type.measure="class", parallel=TRUE, family='binomial', alpha = 1, nlambda=100)
 print(bank.lasso$lambda.min)
 plot(bank.lasso)
 ```
 
-```{r lasso2, include = FALSE, eval = FALSE}
+```{r lasso2, include = FALSE}
 lasso.coefs <- as.data.frame(as.vector(coef(bank.lasso, s = bank.lasso$lambda.min)), 
                              row.names = rownames(coef(bank.lasso)))
 print(lasso.coefs)
@@ -56,7 +56,7 @@ print(lasso.coefs)
 names(lasso.coefs) <- 'coefficient'
 lasso_features <- rownames(lasso.coefs)[lasso.coefs != 0]
 print(lasso_features)
-lasso_features = c("age","job","marital","education","default","housing","contact","month","day_of_week","campaign","pdays","previous","poutcome","emp.var.rate","cons.price.idx","con.conf.idx", "euribor3m")
+lasso_features = c("age","job","marital","education","default","housing","contact","month","day_of_week","campaign","pdays","previous","poutcome","emp.var.rate","cons.price.idx","cons.conf.idx", "euribor3m")
 
 lasso_training = training_upsample[,intersect(colnames(data), c(lasso_features, "y"))] 
 lasso_testing = testing[,intersect(colnames(data), c(lasso_features, "y"))] 
@@ -76,14 +76,13 @@ table(predictions_lasso, lasso_testing$y)
 ```
 
 
-```{r ridge1, include = FALSE, eval = FALSE}
-
+```{r ridge1, include = FALSE}
 bank.ridge <- cv.glmnet(x= as.matrix(x), y = y, nfolds=10,type.measure="class", family='binomial', alpha = 0, nlambda=100)
 print(bank.ridge$lambda.min)
 plot(bank.ridge)
 ```
 
-```{r ridge2, include = FALSE, eval = FALSE}
+```{r ridge2, include = FALSE}
 ridge.coefs <- as.data.frame(as.vector(coef(bank.ridge, s = bank.ridge$lambda.min)), 
                              row.names = rownames(coef(bank.ridge)))
 
@@ -91,7 +90,7 @@ names(ridge.coefs) <- 'coefficient'
 ridge_features <- rownames(ridge.coefs)[ridge.coefs != 0]
 print(ridge_features)
 
-ridge_features = c("age","job","marital","education","default","housing","contact","month","day_of_week","campaign","pdays","previous","poutcome","emp.var.rate","cons.price.idx","con.conf.idx", "euribor3m","nr.employed")
+ridge_features = c("age","job","marital","education","default","housing","contact","month","day_of_week","campaign","pdays","previous","poutcome","emp.var.rate","cons.price.idx","cons.conf.idx", "euribor3m","nr.employed")
 
 ridge_training = training_upsample[,intersect(colnames(data), c(ridge_features, "y"))] 
 ridge_testing = testing[,intersect(colnames(data), c(ridge_features, "y"))] 
@@ -109,7 +108,7 @@ tru_pos_ridge
 ```
 
 
-```{r, include = FALSE, eval = FALSE}
+```{r, include = FALSE}
 ##just logistic regression
 model_std <- glm(y ~ ., family = binomial(link = "logit"),  data = training_upsample)
 summary(model_std)
@@ -187,30 +186,58 @@ table(result.opt$y.act, result.opt$y.pred)
 
 This study considers real data collected from a Portuguese retail bank, from May 2008 to November 2010, in a total of 41,188 phone contacts. This financial campaign focused on targeting through telemarketing phone calls to sell long-term deposits. The response variable of the dataset is a binary successful or unsuccessful contact. Marketing selling campaigns constitute a typical strategy to enhance business. Technology enables rethinking marketing by focusing on maximizing customer lifetime value through the evaluation of available information and customer metrics, thus allowing organizations to select the best set of clients, i.e., that are more likely to subscribe a product (S. Moro, P. Cortez and P. Rita., 2014). The goal of this study is predict if the client will subscribe a long-term deposit using demographic, campaign and economic information. 
 
-Many versions of the dataset was made available on the ([UCI Machine learning repository](https://archive.ics.uci.edu/ml/datasets/Bank+Marketing#)). The one selected for this analysis contained all samples and the highest number of variables to maximize the information input for prediction purposes. The dataset is unbalanced, as only 4.640 (11.27%) records are related with successful outcomes. It must be stressed that for the purpose of this analysis, a false negative error (Type II error) in prediction incurs a much higher cost than a false positivce error (Type I error). If a customer unlikely to subscribe to the product is falsely identified as a potential customer (false positive), it only costs the bank caller a few minutes to make an unsuccessful phonecall; on the other hand, if a true potential customer is dismissed by the model as an unlikely target, the bank runs the risk of losing thousands of dollars of deposits the customer could put into the bank. Therefore, we make it a priority in our study to build the model that has the highest recall rate for true positive cases.               
+Many versions of the dataset was made available on the ([UCI Machine learning repository](https://archive.ics.uci.edu/ml/datasets/Bank+Marketing#)). The one selected for this analysis contained all samples and the highest number of variables to maximize the information input for prediction purposes. The dataset is unbalanced, as only 4.640 (11.27%) records are related with successful outcomes.    
+
+It must be stressed that for the purpose of this analysis, a false negative error (Type II error) in prediction incurs a much higher cost than a false positivce error (Type I error). If a customer unlikely to subscribe to the product is falsely identified as a potential customer (false positive), it only costs the bank caller a few minutes to make an unsuccessful phonecall; on the other hand, if a true potential customer is dismissed by the model as an unlikely target, the bank runs the risk of losing thousands of dollars of deposits the customer could put into the bank. Therefore, we make it a priority in our study to build the model that has the highest recall rate for true positive cases.                
 
 #### 1.2 Questions of Interest   
 
 - Can we predict if a client will subscribe a long-term deposit using demographic, campaign and economic information?     
-- What model, among (a) logistic regression, (b) random forest classification and (c) naive Bayes classification, perform the best in terms of capturing the highest number of true successful outcomes in its prediction?
+- What model, among (a) logistic regression, (b) random forest classification and (c) naive Bayes classification, perform the best in terms of capturing the highest number of true successful outcomes in its prediction?    
 
 ## 2.0 Analysis Plan   
 
-#### 2.1 Population and study design
+#### 2.1 Population and study design    
+
+The population of interest in this study is all adults with the possibility of subscribing a long-term deposit with a specific Portugese retail bank. Using the outcome of the bank's telemarketing campaign, a "yes" or "no" to subscribing the deposit product, as the response variable, and different subsets of 20 demographic, campaign, and economic variables as predictor variables, we hope to build a model to predict whether a new potential customer will subscribe to the long-term deposit. 
+
+The "duration" variable, last contact duration in seconds, was dropped from the dataset. This attribute is highly correlated with the output target, yet the duration is not known before a call is performed. Thus, this input was discarded to have a realistic predictive model. Among the variables used in the analysis, demographic predictor variables include: age, job, marital status, education level, presence of credit in default, if they have housing loan, abd if they have personal loan. Predictor variables related to the campaign include: communication type, month, day of the week, number of contacts performed, number of days since customer contacted from previous campaigns, number of contacts before the campaign, and outcome of previous campaigns. Social and economic variables include: quarterly employment variation rate, monthly consumer price index, monthly consumer confidence index, daily euribor 3-month rate, and quarterly number of employees.      
+
+Common prediction performance metrics include recall/sensitivity, accuracy, precision, and specificity. The definition and differences are demonstrated in Table \@ref(tab:recall). For reasons stated in the introduction, we set our model performance metric to be **recall/sensitivity**.      
+
+: \label{tab:recall} Definition of recall/sensitivity, precision, and specificity.
+
+|                       |          Reference Positive                 | Reference Negative                 |                                  |
+|-----------------------|---------------------------------------------|------------------------------------|----------------------------------|
+| **Predicted Positive**    |    $a$: True positive                       |  $b$: False positive, Type I error | *Precision* = $\frac{a}{a+b}$    |
+| **Predicted Negative**    |    $c$: False negative, Type II error       |  $d$: True Negative                |                                  |
+|                       |  *Recall* = *Sensitivity* = $\frac{a}{a+c}$ | *Specificity* = $\frac{d}{b+d}$    |*Accuracy* = $\frac{a+d}{a+b+c+d}$|
+
+We will compare three different types of models: logistic regreession, random forest, and naive Bayes in their prediction performance. To build the models, we will:
+
+1. Randomly select 70% of the datapoints as the training dataset, leaving the rest 30% as the testing dataset. 
+2. In order to accommodate the unbalanced outcome variable, upsample the training dataset so the outcome variable had equal counts of "yes" and "no".
+3. train the model on the upsampled training data.
+4. evaluate the model recall/sensitivity on the unaltered testing dataset.
 
 #### 2.2 Descriptive Analysis   
 
-task 3: Explore this dataset and generate summary statistics (in forms of tables or plots) that you find crucial for your clients to know. 
+Distribution of response and predictor variables will be examined to idenfity outstanding features of the dataset.     
 
-#### 2.3 Modeul buiding     
-##### 2.3.1 Logistic Regression
+#### 2.3 Model building       
+##### 2.3.1 Logistic Regression     
 
-task 4: Build a prediction model for whether a subject will sign on to a long-term deposit. You will use logistic regression in this task. Specifically, you will   
-a. write down a proper logistic regression model,   
+Logistic regression is suitable for analyzing datasets with binary/categorical response varaibles. The logistic regression model used for prediction will be:   
+
+$\frac{\vec{\pi}}{1-\vec{\pi}} = X^T\vec{\beta}$     
+
+where $\pi$ is a column vector with $\pi_i = P(Y_i = 1)$, probability of positive outcome for subject i; $X$ is a $n \times p$ matrix of predictor variables; and $\vec{\beta}$ is the effect of each predictor variable.     
+
+We will use three different subsets of predictor variables for the logistic regression model: (a) a subset of predictor identified by a LASSO regression process, (b) a subset identified by a ridge regression process, and (c) all predictor variables available in the dataset. When deployed for prediction, cases with predicted $\pi^* \ge 0.5$ are identified as "positive", and the ones with predicted $\pi^* < 0.5$ are identified as "negative".    
 
 ##### 2.3.2 Random Forest Classification
 
-##### 2.3.3 Neive Bayes Classification 
+##### 2.3.3 Naive Bayes Classification 
 
 Another model to consider is the Naive Bayes Classifier. This model, based on Bayes’ theorem, provides a way to calculate the posterior probability of each observation. From these posterior probabilities, we can predict whether a potential customer will sign up for a long-term deposit. 
 
@@ -224,17 +251,31 @@ We will present two Naive Bayes Classification models. The first model, **the fu
 
 #### 3.1 Descriptive Analysis   
 
+
+
 #### 3.2 Model Fitting and Prediction Performance    
-##### 3.3.1 Logistic Regression     
 
-4b. fit the model,   
-4c. evaluate the performance of the fitted model,   
+The size and response variable balance is displayed in Table \@ref(tab:datasets).
 
-##### 3.3.2 Random Forest Classification
+: \label{tab:datasets} Sizes and distributions of the response variable in the original training dataset, upsampled training dataset, and testing dataset
+
+|                   |  Total | Response: Yes | Response: No |
+|-------------------|--------|---------------|--------------|
+| Original training | 28832  |   3262        |    25570     |
+| Upsampled training| 51140  |   25570       |    25570     |
+| Testing           | 12356  |   1378        |    10978     |
+
+##### 3.2.1 Logistic Regression  
+
+LASSO and ridge regularizations were used to eliminate predictor variables unlikely to contribute to the model. LASSO regression with optimum $\lambda = 0.000262$ ($\lambda$ is a weight parameter for penalizing additional variables) eliminated economic variable "nr.employed", the quarterly updated count of number of employers, from the set of predictor varaibles. Ridge regression with optimum $\lambda = 0.0233$ did not eliminate any variable from the list.    
+
+Logistic regression fitted without the "nr.employed" variable correctly predicted 839 out of 1378 true positive cases in the testing dataset, resulted in $Recall = 0.6081$. With the "nr.employed" variable, logistic regression correctly recalled 840 out of the 1378 true positive cases, $Recall = 0.6089$, slightly higher than the LASSO-regularized model.   
+
+##### 3.2.2 Random Forest Classification
 
 task 5: Build another prediction model using a method of your choice, and compare its performance to the logistic regression.  
 
-##### 3.3.3 Neive Bayes Classification  
+##### 3.2.3 Naive Bayes Classification  
 
 #### 3.3 Model Diagnostics     
 
@@ -246,11 +287,11 @@ task 6: Explain the gap in the performances, if any, to your supervisor, who kno
 
 **In any of these tasks, if a statistical method is employed, you need to clearly state the model and justify your choice.**   
 
-## Referece   
+## Reference   
 
 Rish, I. (2001). An Empirical Study of the Naïve Bayes Classifier. IJCAI, 41–46.
 
-S. Moro, P. Cortez and P. Rita. A Data-Driven Approach to Predict the Success of Bank Telemarketing. Decision Support Systems, Elsevier, 62:22-31, June 2014
+S. Moro, P. Cortez and P. Rita. (2014). A Data-Driven Approach to Predict the Success of Bank Telemarketing. Decision Support Systems, Elsevier, 62:22-31 
 
 
 
