@@ -1,0 +1,166 @@
+---
+output:
+  bookdown::pdf_document2:
+    toc: no
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+data <- read.csv("bank-additional-full.csv", sep = ";")
+data2 <- data %>% 
+  select(-duration)
+```
+
+```{r}
+set.seed(1)
+selection = sample(1:nrow(data2), size = ceiling(nrow(data)*0.7), replace = FALSE)
+training = data2[selection,]
+dim(training) #28832    21
+testing = data2[-selection,]
+dim(testing) #12356    21
+
+```
+
+```{r}
+#fit = glm(y~., family = binomial, data = training_upsample)
+##fit = glm(y~., family = binomial, data = training)
+#summary(fit)
+#library(car)
+#Anova(fit)
+#
+#predict_y <- if_else(predict(fit, testing, type = 'response')>=0.5, 1, 0)
+#test_y <- if_else(testing$y == 'yes', 1, 0)
+##summary(factor(predcit_y))
+#cm = table(test_y, predict_y)
+#recall = cm[2,2]/sum(cm[2,])
+#precision = cm[2,2]/sum(cm[,2])
+#f1 = 2*recall*precision/(precision+recall)
+#
+#library(pROC)
+#rocplot <- roc(test_y ~ predict(fit, testing, type = 'response'), legacy.axes=TRUE)
+#plot(rocplot)
+#auc(rocplot)
+```
+
+```{r}
+library(ranger)
+library(rsample)
+library("groupdata2")
+training_upsample = upsample(training, cat_col = 'y')
+testing_upsample = upsample(testing, cat_col = 'y')
+```
+
+```{r}
+#set.seed(123)
+#data_split <- initial_split(data2, prop = .7)
+#train <- training(data_split)
+#test <- testing(data_split)
+
+weights <- if_else(training$y == 'yes', 
+                   1/table(training$y)['yes'] * 0.5,
+                   1/table(training$y)['no'] * 0.5)
+
+rf <- ranger(y ~ ., data = training, case.weights = weights, write.forest = T)
+             
+rf_prob <- ranger(y ~ ., data = training, case.weights = weights, write.forest = T, probability = TRUE)
+
+rf2 <- ranger(y ~ ., data = training,  case.weights = weights, importance = "permutation")
+
+importances = importance(rf2) 
+
+importance_plot = tibble(features = names(importances), importance = importances) %>% 
+  mutate(rank = rank(desc(importance))) %>% 
+  ggplot(aes(x = reorder(features, importance),y = importance)) +
+    geom_bar(stat='identity') + 
+   # geom_text(aes(x = features, y = 0.5, label = rank), hjust=0, vjust=0.55, size = 4, colour = 'white') +
+    labs(x ='Variables', y = "Scale Permutation Importance") +
+    coord_flip() + 
+    theme_classic()
+
+pred_test <- predict(rf, data = testing)
+pred_test_prob <- predict(rf_prob, data = testing)
+cm = table(predictions(pred_test), testing$y)
+
+training_r <- training %>% 
+  select(-c(campaign, marital, default, pdays, contact))
+
+rf_r <- ranger(y ~ ., data = training_r, case.weights = weights, write.forest = T)
+
+rf_prob_r <- ranger(y ~ ., data = training_r, case.weights = weights, write.forest = T, probability = TRUE)
+
+pred_test_r <- predict(rf_r, data = testing)
+pred_test_prob_r <- predict(rf_prob_r, data = testing)
+
+cm_r = table(predictions(pred_test_r), testing$y)
+
+result <- data.frame(y.act = testing$y, y.pred = predictions(pred_test),predictions(pred_test_prob))
+#write.csv(result,"random_forest.csv")
+
+result <- data.frame(y.act = testing$y, y.pred = predictions(pred_test_r),predictions(pred_test_prob_r))
+#write.csv(result,"random_forest_r.csv")
+
+
+```
+
+```{r}
+#
+#hyper_grid <- expand.grid(
+#  mtry = seq(2,18, by = 2)
+#  #num_tree = seq(300, 1000, by = 100)
+#  )
+#
+#for(i in 1:nrow(hyper_grid)){
+#  model <- ranger(
+#    formula = y~.,
+#    data = training_upsample,
+#    #num.trees = hyper_grid$num_tree[i],
+#    mtry = hyper_grid$mtry[i],
+#    seed = 123
+#  )
+#  
+#  cf = rf$confusion.matrix
+#  hyper_grid$sensitivity = cf[2,2]/sum(cf[2,])
+#  hyper_grid$precision = cf[2,2]/sum(cf[,2])
+#}
+#
+##write.csv(hyper_grid, 'hyper_grid.csv')
+#
+#hyper_grid %>% 
+#  mutate(f1_score = 2*precision*sensitivity/(precision+sensitivity)) %>%
+#  arrange(sensitivity) %>% 
+#  head(50)
+  
+  
+```
+
+# Random Forest Classification
+
+We also use the random forest to build the prediction model. Random forest is a tree-based ensemble learning method. It uses a modification of the bagging technique, which could improve models in terms of stability and classification accuracy, reduces variance and helps to avoid overfitting. There are two sources of randomness in the random forest method. On the one hand, each tree is grown based on a bootstrap resampled data set. On the other hand, each time a split is to be performed, the search for the split variable is limited to a random subset of variables.
+
+Since the outcome of the data set is very imbalanced, weights for the sampling of training observations were assigned proportionally to the inverse of its frequency. Observations with larger weights will be selected with a higher probability in the bootstrap samples for the trees.
+
+# Results
+
+All the variables except ‘duration’ were included when building the model. The scale permutation importance by standard error for each variable were shown in Figure \@ref(fig: ipt). It can be seen that variables campaign, marital, default, pdays, and contact have negative permutation importance. So these variables were dropped to fit a new random forest model.
+
+```{r ipt, fig.cap='Permutaion Feature importances in the Random Forest Model'}
+importance_plot
+```
+
+
+Since the new model has a higher sensitivity, we choose the new model as the final version for the random forest method. The confusion matrix for the new model for the test data set was shown in Table \@ref(tab:rfcm).
+
+: \label{tab:rfcm} Confusion Matrix for Random Forest 
+
+|   |Predicted No | Predicted yes|
+----|-------------|--------------|
+Actual No|  9932|   1046|
+Actual Yes|   598|   780|
+
+# 
